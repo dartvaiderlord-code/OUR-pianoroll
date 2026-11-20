@@ -39,6 +39,47 @@ func check_soft_onsets(note: Dictionary) -> bool:
 	return expect(faded.decode_s16(0)==0 and faded.decode_s16(faded.size()-2)==0,
 		"Exported PCM fades in and out at the clip boundaries")
 
+func capture_peak(capture: AudioEffectCapture, duration: float) -> float:
+	var peak = 0.0
+	var deadline = Time.get_ticks_msec()+roundi(duration*1000.0)
+	while Time.get_ticks_msec() < deadline:
+		await create_timer(.05).timeout
+		var available = capture.get_frames_available()
+		if available > 0:
+			for frame in capture.get_buffer(available):
+				peak = maxf(peak,maxf(absf(frame.x),absf(frame.y)))
+	return peak
+
+func check_dense_chord() -> bool:
+	var transport = preload("res://scripts/transport.gd").new()
+	var notes = []
+	for pitch in range(30,78):
+		var note = {"pitch":pitch,"start":0.0,"end":.36,"velocity":1.0,"program":0,"channel":0}
+		transport.synth.instrument(note)
+		notes.append(note)
+	root.add_child(transport)
+	transport.change_volume(1.0)
+	var capture = AudioEffectCapture.new()
+	capture.buffer_length = .6
+	var capture_index = AudioServer.get_bus_effect_count(0)
+	AudioServer.add_bus_effect(0,capture)
+	await create_timer(.08).timeout
+	capture.clear_buffer()
+	transport.audition(60,0,true)
+	var solo_peak = await capture_peak(capture,.5)
+	transport.audition(60,0,false)
+	await create_timer(.20).timeout
+	capture.clear_buffer()
+	transport.replace([MIDI.layer("Chord A",notes,.5),MIDI.layer("Chord B",notes.duplicate(true),.5)])
+	transport.play()
+	var chord_peak = await capture_peak(capture,.65)
+	AudioServer.remove_bus_effect(0,capture_index)
+	transport.queue_free()
+	await process_frame
+	print("Native mixer peaks: single key %.3f, layered 48-key chord %.3f" % [solo_peak,chord_peak])
+	return expect(solo_peak>.12 and solo_peak<.25 and chord_peak>.5 and chord_peak<.92,
+		"Dense chords should stay below clipping at maximum volume while single keys keep their level")
+
 func check_photo(app: Control) -> bool:
 	var image = Image.create(9,7,false,Image.FORMAT_RGB8)
 	image.fill(Color("#2580d4"))
@@ -117,6 +158,8 @@ func run() -> void:
 		return
 	if not check_soft_onsets(melodic.notes[0]):
 		return
+	if not await check_dense_chord():
+		return
 	if not expect(Text.label("keysBackground","en")=="Keys & Background","English labels"):
 		return
 	print("MIDI, truncation guard, seeking, PCM and localization passed.")
@@ -135,6 +178,8 @@ func run() -> void:
 	if not check_photo(app):
 		return
 	if not OS.get_cmdline_user_args().has("--video"):
+		app.queue_free()
+		await create_timer(.08).timeout
 		quit()
 		return
 	await RenderingServer.frame_post_draw
@@ -203,4 +248,6 @@ func run() -> void:
 		if not expect(result[0]=="videoSaved","Export with an explicit effect size: "+str(result)):
 			return
 		print(ProjectSettings.globalize_path(clip))
+	app.queue_free()
+	await create_timer(.08).timeout
 	quit()

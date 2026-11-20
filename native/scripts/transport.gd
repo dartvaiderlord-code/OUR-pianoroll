@@ -23,6 +23,7 @@ func _ready() -> void:
 	var poly = AudioStreamPolyphonic.new()
 	poly.polyphony = 128
 	player.stream = poly
+	player.bus = &"Piano"
 	add_child(player)
 	player.play()
 	playback = player.get_stream_playback()
