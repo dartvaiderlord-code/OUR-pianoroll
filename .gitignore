@@ -1,0 +1,10 @@
+/native/.godot/
+/native/android/
+/build/
+*.apk
+*.apks
+*.aab
+*.keystore
+*.jks
+*.pfx
+*.pem

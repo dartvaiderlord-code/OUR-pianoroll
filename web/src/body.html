@@ -1,0 +1,172 @@
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2l2-5 3 10 3-14 3 18 2-9h3"/></symbol>
+<symbol id="i-demo" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 14v6m-3-3h6M5 3v4M3 5h4"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3m-4 4 4-4 4 4M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h3m4 0h9M4 12h9m4 0h3M4 18h3m4 0h9"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></symbol>
+<symbol id="i-piano" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9H6V4m12 0v9h-3V4M8 13v7m8-7v7m-4-16v16"/></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/></symbol>
+<symbol id="i-collapse" viewBox="0 0 24 24"><path d="M4 9h5V4m11 5h-5V4M9 20v-5H4m11 5v-5h5"/></symbol>
+<symbol id="i-start" viewBox="0 0 24 24"><path d="M5 5v14m14-13-9 6 9 6Z"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h3v14H7zm7 0h3v14h-3z"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24"><path d="m16 2 4 4-4 4M4 11V9a3 3 0 0 1 3-3h13m-12 16-4-4 4-4m12-1v2a3 3 0 0 1-3 3H4"/></symbol>
+<symbol id="i-volume" viewBox="0 0 24 24"><path d="m12 4-6 5H3v6h3l6 5zM16 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"/></symbol>
+<symbol id="i-muted" viewBox="0 0 24 24"><path d="m12 4-6 5H3v6h3l6 5zm4 5 5 6m0-6-5 6"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5l11-2v12M9 10l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="15" rx="3" ry="2"/></symbol>
+<symbol id="i-colors" viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 18 0M6 16a6 6 0 0 1 12 0M9 16a3 3 0 0 1 6 0"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="m3 17 5-4 3 2 4-4 6 5"/></symbol>
+<symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.4" fill="currentColor"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4m-4 3v3"/></symbol>
+</svg>
+<header class="topbar">
+  <div class="mast">
+    <div class="brand"><div class="logo" aria-hidden="true"><svg class="iconsvg"><use href="#i-wave"/></svg></div><span><strong>OUR</strong>-pianoroll</span></div>
+    <div class="top-actions">
+      <button class="button ghost" id="demo" type="button"><svg><use href="#i-demo"/></svg><span data-i18n="demo">Демо</span></button>
+      <button class="button primary" id="open" type="button"><svg><use href="#i-upload"/></svg><span data-i18n="loadMidi">Загрузить MIDI</span></button>
+      <input id="files" type="file" accept=".mid,.midi,.smf,audio/midi,audio/x-midi" multiple hidden>
+    </div>
+  </div>
+</header>
+<main class="shell">
+  <div class="heading">
+    <div><h1 data-i18n="visualizer">MIDI-визуализатор</h1><p data-i18n="intro">Перетащите MIDI-файлы на пиано-ролл или включите демо.</p></div>
+    <div class="heading-actions">
+      <label class="theme-switch language-switch"><select id="language" aria-label="Язык интерфейса" data-i18n-label="language"><option value="ru" lang="ru">Русский</option><option value="en" lang="en">English</option></select><svg class="iconsvg" aria-hidden="true"><use href="#i-chevron"/></svg></label>
+      <label class="theme-switch"><i aria-hidden="true"></i><select id="theme" aria-label="Тема оформления" data-i18n-label="theme"><option value="classic" data-i18n="classicTheme">Фиолетовый неон</option><option value="soviet" selected data-i18n="sovietTheme">Советский неон</option></select><svg class="iconsvg" aria-hidden="true"><use href="#i-chevron"/></svg></label>
+      <button class="button settings" id="toggleSettings" type="button" aria-expanded="true" aria-controls="settings" aria-label="Настройки" data-i18n-label="settings"><svg><use href="#i-sliders"/></svg><span class="settings-text" data-i18n="settings">Настройки</span></button>
+    </div>
+  </div>
+  <div class="workbench" id="workbench">
+    <div class="workspace">
+      <section class="stage" id="stage" aria-labelledby="stage-title">
+        <header class="stage-head">
+          <div class="stage-title"><svg class="iconsvg"><use href="#i-piano"/></svg><h2 id="stage-title" data-i18n="pianoRoll">Пиано-ролл</h2></div>
+          <div class="stage-tools">
+            <div class="legend" id="legend" aria-label="Цвета MIDI-файлов" data-i18n-label="layerColors"></div>
+            <span class="zoom" id="keyCount" data-i18n="standardKeys">88 клавиш</span>
+            <button class="icon-button record-button" id="record" type="button" title="Записать видео со звуком" data-i18n-title="recordVideo" aria-label="Записать видео со звуком" data-i18n-label="recordVideo" aria-pressed="false"><svg><use href="#i-video"/></svg><span id="recordLabel" data-i18n="video">Видео</span></button>
+            <button class="icon-button" id="fullscreen" type="button" title="На весь экран" data-i18n-title="fullscreen" aria-label="На весь экран" data-i18n-label="fullscreen"><svg><use href="#i-expand"/></svg></button>
+          </div>
+        </header>
+        <div class="canvas-wrap" id="dropZone">
+          <canvas id="roll" aria-label="Падающие MIDI-ноты и клавиши пианино" data-i18n-label="rollLabel"></canvas>
+          <p class="empty" id="empty" hidden data-i18n="emptyRoll">Добавьте MIDI-файл, чтобы увидеть ноты.</p>
+          <div class="drop" id="dropHint" hidden><svg class="iconsvg"><use href="#i-upload"/></svg><span data-i18n="dropMidi">Отпустите, чтобы добавить MIDI-файлы</span></div>
+        </div>
+        <div class="recording-result" id="recordingResult" hidden>
+          <span role="status" id="recordingStatus"></span>
+          <a class="button" id="downloadVideo" download hidden><svg class="iconsvg"><use href="#i-download"/></svg><span data-i18n="downloadVideo">Скачать видео</span></a>
+        </div>
+      </section>
+      <section class="transport" aria-label="Воспроизведение" data-i18n-label="playback">
+        <div class="timeline"><canvas id="overview" aria-hidden="true"></canvas><input id="seek" aria-label="Позиция воспроизведения" data-i18n-label="playbackPosition" type="range" min="0" max="10000" value="0"></div>
+        <div class="timeline-times"><span id="elapsed">00:00</span><span id="duration">00:00</span></div>
+        <div class="transport-controls">
+          <div class="transport-side">
+            <button class="icon-button" id="rewind" type="button" title="К началу" data-i18n-title="restart" aria-label="К началу" data-i18n-label="restart"><svg><use href="#i-start"/></svg></button>
+            <button class="icon-button play-button" id="play" type="button" title="Воспроизвести" data-i18n-title="play" aria-label="Воспроизвести" data-i18n-label="play"><svg><use href="#i-play"/></svg></button>
+            <button class="icon-button" id="loop" type="button" title="Повтор" data-i18n-title="repeat" aria-label="Повтор" data-i18n-label="repeat" aria-pressed="false"><svg><use href="#i-repeat"/></svg></button>
+            <span class="core-time" aria-hidden="true"><strong id="elapsedCopy">00:00</strong> / <span id="durationCopy">00:00</span></span>
+          </div>
+          <div class="transport-side">
+            <button class="icon-button" id="mute" type="button" title="Выключить звук" data-i18n-title="mute" aria-label="Выключить звук" data-i18n-label="mute"><svg><use href="#i-volume"/></svg></button>
+            <input type="range" id="volume" min="0" max="100" value="70" aria-label="Громкость" data-i18n-label="volume">
+            <label class="speed-wrap"><select id="speed" aria-label="Скорость" data-i18n-label="speed"><option value=".5" data-i18n="speedHalf">0,5×</option><option value=".75" data-i18n="speedThreeQuarter">0,75×</option><option value="1" selected>1×</option><option value="1.25" data-i18n="speedOneQuarter">1,25×</option><option value="1.5" data-i18n="speedOneHalf">1,5×</option><option value="2">2×</option></select><svg class="iconsvg"><use href="#i-chevron"/></svg></label>
+          </div>
+        </div>
+      </section>
+    </div>
+    <aside class="side" id="settings" aria-labelledby="settings-title">
+      <header class="side-head"><div class="panel-title"><svg class="iconsvg"><use href="#i-sliders"/></svg><h2 id="settings-title" data-i18n="settings">Настройки</h2></div><button class="icon-button" id="closeSettings" type="button" title="Закрыть настройки" data-i18n-title="closeSettings" aria-label="Закрыть настройки" data-i18n-label="closeSettings"><svg><use href="#i-close"/></svg></button></header>
+      <section class="side-section">
+        <div class="side-section-head"><h3 data-i18n="midiLayers">MIDI-слои</h3><span class="badge" id="trackCount">0 / 4</span></div>
+        <div class="limit-row"><label for="limit" data-i18n="simultaneous">Одновременно</label><div class="step">
+          <button id="limitDown" type="button" aria-label="Уменьшить лимит" data-i18n-label="lowerLimit"><svg><use href="#i-minus"/></svg></button><input type="number" id="limit" min="1" max="16" value="4" inputmode="numeric"><button id="limitUp" type="button" aria-label="Увеличить лимит" data-i18n-label="raiseLimit"><svg><use href="#i-plus"/></svg></button>
+        </div></div>
+        <div id="tracks" class="track-list"></div>
+        <button class="button add" id="add" type="button"><svg><use href="#i-plus"/></svg><span data-i18n="addMidi">Добавить MIDI</span></button>
+      </section>
+      <section class="side-section">
+        <div class="side-section-head effects-head"><h3 data-i18n="visualEffects">Визуальные эффекты</h3></div>
+        <div class="color-grid">
+          <label class="color-label"><input class="color-pick" id="noteColor" type="color" value="#ff685d"><span data-i18n="noteColor">Цвет нот</span></label>
+          <label class="color-label"><input class="color-pick" id="keyColor" type="color" value="#ffb16d"><span data-i18n="keyColor">Цвет клавиш</span></label>
+        </div>
+        <label class="effect-row"><span data-i18n="neonNotes">Неоновые ноты</span><input class="switch" type="checkbox" data-effect="glow" checked></label>
+        <label class="effect-row"><span data-i18n="keyGlow">Подсветка клавиш</span><input class="switch" type="checkbox" data-effect="keys" checked></label>
+        <label class="effect-row"><span data-i18n="particles">Частицы</span><input class="switch" type="checkbox" data-effect="particles" checked></label>
+        <label class="effect-row"><span data-i18n="beams">Световые лучи</span><input class="switch" type="checkbox" data-effect="beams" checked></label>
+        <div class="appearance-actions">
+          <button class="button appearance-button" id="appearance" type="button"><svg><use href="#i-image"/></svg><span data-i18n="keysBackground">Клавиши и фон</span></button>
+          <button class="more" id="more" type="button" data-i18n="moreEffects">Ещё эффекты</button>
+        </div>
+      </section>
+    </aside>
+  </div>
+  <div class="notice" id="notice" role="status" hidden></div>
+  <footer class="bottom">
+    <span><svg class="iconsvg"><use href="#i-lock"/></svg><span data-i18n="localFiles">Файлы остаются в браузере</span></span>
+    <a id="download" href="index.html" download="our-pianoroll.html" data-i18n="downloadHtml">Скачать HTML</a>
+    <span class="shortcut"><kbd data-i18n="space">Пробел</kbd> <span data-i18n="playPause">пауза / играть</span> <kbd>←</kbd><kbd>→</kbd> <span data-i18n="seek">перемотка</span></span>
+  </footer>
+</main>
+<dialog class="dialog" id="effectDialog" aria-labelledby="dialog-title">
+  <div class="dialog-header"><h2 id="dialog-title" data-i18n="extraEffects">Дополнительные эффекты</h2><button class="icon-button" id="closeDialog" type="button" title="Закрыть" data-i18n-title="close" aria-label="Закрыть" data-i18n-label="close"><svg><use href="#i-close"/></svg></button></div>
+  <label class="effect-row"><span data-i18n="ambient">Фоновое сияние</span><input class="switch" type="checkbox" data-effect="ambient" checked></label>
+  <label class="effect-row"><span data-i18n="strikeRipples">Вспышки на линии удара</span><input class="switch" type="checkbox" data-effect="ripples" checked></label>
+  <label class="effect-row"><span data-i18n="horizontalBands">Горизонтальные полосы</span><input class="switch" type="checkbox" data-effect="bands" checked></label>
+  <label class="effect-row"><span data-i18n="verticalLanes">Вертикальные дорожки</span><input class="switch" type="checkbox" data-effect="lanes" checked></label>
+  <label class="effect-row"><span data-i18n="strikeLine">Линия попадания нот</span><input class="switch" type="checkbox" data-effect="strikeLine" checked></label>
+  <label class="effect-row"><span data-i18n="noteFill">Заливка нот</span><select id="noteFill">
+    <option value="translucent" data-i18n="fillTranslucent">Полупрозрачная</option><option value="solid" data-i18n="fillSolid">Сплошная</option><option value="outline" data-i18n="fillOutline">Только контур</option><option value="gradient" data-i18n="fillGradient">Плотный градиент</option>
+  </select></label>
+  <label class="effect-row"><span data-i18n="noteRoundness">Скругление нот</span><span class="effect-range"><input id="noteRoundness" type="range" min="0" max="100" value="50" aria-label="Скругление нот" data-i18n-label="noteRoundness"><output id="roundnessValue" for="noteRoundness">50%</output></span></label>
+  <label class="effect-row"><span data-i18n="layerKeyColors">Цвета слоёв на клавишах</span><input class="switch" type="checkbox" data-effect="layerKeys"></label>
+  <label class="effect-row"><span data-i18n="keyRange">Диапазон клавиш</span><select id="range"><option value="88" data-i18n="standardKeys">88 клавиш</option><option value="128" data-i18n="fullKeys">128 MIDI-нот</option></select></label>
+  <label class="effect-row"><span data-i18n="noteHorizon">Горизонт нот</span><select id="horizon"><option value="2.5" data-i18n="shortHorizon">2,5 с</option><option value="4.5" selected data-i18n="normalHorizon">4,5 с</option><option value="7" data-i18n="longHorizon">7 с</option></select></label>
+  <button class="reset" id="reset" type="button" data-i18n="resetAppearance">Сбросить оформление</button>
+</dialog>
+<dialog class="dialog" id="noteDialog" aria-labelledby="note-dialog-title">
+  <div class="dialog-header"><h2 id="note-dialog-title" data-i18n="noteColors">Цвета нот</h2><button class="icon-button" id="closeNoteDialog" type="button" title="Закрыть" data-i18n-title="close" aria-label="Закрыть" data-i18n-label="close"><svg><use href="#i-close"/></svg></button></div>
+  <p class="dialog-meta" id="noteLayerName"></p>
+  <label class="effect-row"><span data-i18n="noteColorMode">Раскраска нот</span><select id="noteMode">
+    <option value="solid" data-i18n="colorSingle">Один цвет</option><option value="pitch" data-i18n="colorByPitch">По названию ноты</option><option value="octave" data-i18n="colorByOctave">По октавам</option><option value="rainbow" data-i18n="colorRainbow">Радуга по порядку</option>
+  </select></label>
+  <div class="note-swatches" id="noteSwatches" aria-hidden="true"></div>
+</dialog>
+<dialog class="dialog appearance-dialog" id="appearanceDialog" aria-labelledby="appearance-title">
+  <div class="dialog-header"><h2 id="appearance-title" data-i18n="keysBackground">Клавиши и фон</h2><button class="icon-button" id="closeAppearance" type="button" title="Закрыть" data-i18n-title="close" aria-label="Закрыть" data-i18n-label="close"><svg><use href="#i-close"/></svg></button></div>
+  <label class="effect-row"><span data-i18n="keyStyle">Стиль клавиш</span><select id="keyStyle">
+    <option value="theme" data-i18n="matchTheme">По теме</option>
+    <option value="piano" data-i18n="pianoKeys">Классическое пианино</option><option value="glass" data-i18n="glassKeys">Прозрачные</option><option value="neon" data-i18n="neonKeys">Неоновый контур</option><option value="matte" data-i18n="matteKeys">Матовый графит</option>
+    <option value="square" data-i18n="squareKeys">Квадратные силуэты</option><option value="gold" data-i18n="goldKeys">Золотые</option><option value="spectrum" data-i18n="rainbowKeys">Разноцветные</option><option value="ice" data-i18n="iceKeys">Лёд</option><option value="inverted" data-i18n="invertedKeys">Инверсия</option>
+  </select></label>
+  <fieldset class="background-field">
+    <legend data-i18n="rollBackground">Фон пиано-ролла</legend>
+    <div class="background-options" id="backgroundOptions">
+      <label class="background-option"><input type="radio" name="background" value="theme" checked><span class="background-thumb theme-thumb"></span><span data-i18n="matchTheme">По теме</span></label>
+      <label class="background-option"><input type="radio" name="background" value="aurora"><span class="background-thumb aurora"></span><span data-i18n="aurora">Сияние</span></label>
+      <label class="background-option"><input type="radio" name="background" value="black"><span class="background-thumb black"></span><span data-i18n="black">Чёрный</span></label>
+      <label class="background-option"><input type="radio" name="background" value="orbit"><span class="background-thumb orbit"></span><span data-i18n="orbit">Орбита</span></label>
+      <label class="background-option"><input type="radio" name="background" value="ocean"><span class="background-thumb ocean"></span><span data-i18n="ocean">Глубина</span></label>
+      <label class="background-option"><input type="radio" name="background" value="sunset"><span class="background-thumb sunset"></span><span data-i18n="sunset">Закат</span></label>
+      <label class="background-option" id="customBackgroundOption" hidden><input type="radio" name="background" value="custom"><span class="background-thumb custom" id="customBackgroundThumb"></span><span data-i18n="customBackground">Свой фон</span></label>
+    </div>
+  </fieldset>
+  <div class="background-upload">
+    <button class="button" id="uploadBackground" type="button"><svg><use href="#i-upload"/></svg><span data-i18n="uploadImage">Загрузить изображение</span></button>
+    <input id="backgroundFile" type="file" accept="image/*" hidden>
+    <span class="dialog-meta" id="backgroundName" hidden></span>
+  </div>
+  <label class="effect-row" id="backgroundShadeRow" hidden><span data-i18n="backgroundShade">Затемнение фото</span><input id="backgroundShade" type="range" min="0" max="85" value="28"></label>
+  <p class="dialog-meta background-status" id="backgroundStatus" role="status" hidden></p>
+</dialog>
