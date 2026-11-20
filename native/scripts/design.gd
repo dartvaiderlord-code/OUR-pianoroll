@@ -1,7 +1,9 @@
 extends RefCounted
 
 const MIDI = preload("res://scripts/midi.gd")
-const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys","hitStyle"]
+const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys","hitStyle","hitSize"]
+const MIN_HIT_SIZE = 25.0
+const MAX_HIT_SIZE = 300.0
 const BACKGROUNDS = {"theme":"matchTheme","aurora":"aurora","black":"black","orbit":"orbit","ocean":"ocean","sunset":"sunset","custom":"customBackground"}
 const KEY_STYLES = {"theme":"matchTheme","piano":"pianoKeys","glass":"glassKeys","neon":"neonKeys","matte":"matteKeys","square":"squareKeys","gold":"goldKeys","spectrum":"rainbowKeys","ice":"iceKeys","inverted":"invertedKeys"}
 const NOTE_MODES = {"solid":"colorSingle","pitch":"colorByPitch","octave":"colorByOctave","rainbow":"colorRainbow"}
@@ -16,7 +18,7 @@ static func defaults() -> Dictionary:
 		"theme":"soviet","language":"ru","noteColor":"","keyColor":"","keyStyle":"theme","background":"theme","backgroundShade":28.0,
 		"range":88,"horizon":4.5,"noteRoundness":50.0,"noteFill":"translucent",
 		"ambient":true,"bands":true,"lanes":true,"strikeLine":true,"glow":true,"keys":true,
-		"particles":true,"beams":true,"ripples":true,"layerKeys":false,"hitStyle":"classic"
+		"particles":true,"beams":true,"ripples":true,"layerKeys":false,"hitStyle":"classic","hitSize":100.0
 	}
 
 static func theme_colors(settings: Dictionary) -> Dictionary:

@@ -26,6 +26,7 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 	var speed: float = options.speed
 	var seconds = (options.end-options.start)/speed if capture.is_empty() else capture.duration
 	var frames = ceili(seconds*fps)
+	var sample_count = floori(frames*rate/fps)
 	var output = Vector2i(options.width,options.height)
 	var local = "user://recording-%d.mkv" % Time.get_ticks_usec() if path.begins_with("content://") else path+".part"
 	var writer = Writer.new()
@@ -39,6 +40,7 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 	var viewport = SubViewport.new()
 	viewport.size = output
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
 	viewport.gui_disable_input = true
 	add_child(viewport)
 	var canvas = Roll.new()
@@ -51,9 +53,9 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 	var scene_index = -1
 	var hit_index = 0
 	var hits: Array = capture.get("hits",[])
-	# Allow the offscreen roll and its effect textures to initialize before sampling the first frame.
-	await get_tree().process_frame
 	for frame in range(frames):
+		# Apply the next state at the start of a frame, outside the previous render callback.
+		await get_tree().process_frame
 		if cancelled:
 			break
 		var elapsed = frame/fps
@@ -78,8 +80,8 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 			while hit_index < hits.size() and hits[hit_index].x <= elapsed:
 				canvas.key_hit(int(hits[hit_index].y),hits[hit_index].x)
 				hit_index += 1
-			canvas.queue_redraw()
 		canvas.present(song_time,elapsed)
+		canvas.queue_redraw()
 		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
 		var image = viewport.get_texture().get_image()
@@ -92,7 +94,6 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 			break
 		var first = floori(frame*rate/fps)
 		var next = floori((frame+1)*rate/fps)
-		writer.block(1,roundi(frame*Writer.TICKS_PER_SECOND/fps),jpg)
 		if next > first:
 			var audio: PackedByteArray
 			if not capture.is_empty():
@@ -102,7 +103,9 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 				audio.resize(wanted)
 			else:
 				audio = synth.pcm(layers,first,next-first,options.start,speed,options.volume)
+			audio = Synth.fade_clip_edges(audio,first,sample_count,rate)
 			writer.block(2,roundi(float(first)*Writer.TICKS_PER_SECOND/rate),audio)
+		writer.block(1,roundi(frame*Writer.TICKS_PER_SECOND/fps),jpg)
 		if writer.error != OK:
 			failure = true
 			break

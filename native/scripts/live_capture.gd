@@ -36,12 +36,15 @@ func add_scene(settings: Dictionary, layers: Array, background: Texture2D) -> vo
 func add_frame(position: float, held: Dictionary) -> void:
 	var time = elapsed()
 	points.append(Vector2(time,position))
-	if touches.is_empty() or touches.back()[1] != held:
-		touches.append([time,held.duplicate()])
+	add_touch(held,time)
 	drain()
 
-func add_hit(pitch: int) -> void:
-	hits.append(Vector2(elapsed(),pitch))
+func add_touch(held: Dictionary, at: float) -> void:
+	if touches.is_empty() or touches.back()[1] != held:
+		touches.append([at,held.duplicate()])
+
+func add_hit(pitch: int, at: float) -> void:
+	hits.append(Vector2(at,pitch))
 
 func drain() -> void:
 	var available = effect.get_frames_available()

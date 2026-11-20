@@ -96,20 +96,10 @@ func start_clock() -> void:
 	schedule()
 
 func sound_note(note: Dictionary, offset: float) -> void:
-	var bank = synth.instrument(note)
-	if bank.damper > 0 and offset >= bank.damper:
+	var wav = synth.stream_from(note,offset)
+	if not wav:
 		return
-	var wav: AudioStreamWAV = bank.stream
-	var seconds = wav.get_length()
-	if offset >= seconds and wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
-		return
-	var start = offset
-	if bank.loop_end > bank.loop_begin:
-		var sample_start = float(bank.loop_begin)/Synth.RATE
-		var span = float(bank.loop_end-bank.loop_begin)/Synth.RATE
-		if start > sample_start:
-			start = sample_start + fposmod(start-sample_start,span)
-	var id = playback.play_stream(wav,start,linear_to_db(maxf(.00001,pow(note.velocity,1.65)*.31)))
+	var id = playback.play_stream(wav,0,linear_to_db(maxf(.00001,pow(note.velocity,1.65)*.31)))
 	if id != AudioStreamPlaybackPolyphonic.INVALID_ID:
 		voices.append({"id":id,"end":note.end})
 

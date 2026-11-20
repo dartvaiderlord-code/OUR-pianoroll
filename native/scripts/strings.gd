@@ -711,7 +711,8 @@ const TEXT = {
   "hitNone": [
     "Выключен",
     "Off"
-  ]
+  ],
+  "hitSize": ["Размер эффекта", "Effect size"]
 }
 
 static func label(key: String, language: String, values := {}) -> String:

@@ -6,6 +6,7 @@ const Design = preload("res://scripts/design.gd")
 const PANORAMA = preload("res://assets/soviet-panorama.webp")
 const DARK = [1,3,6,8,10]
 const HIT_LIFETIME = .60
+const EFFECT_REFERENCE_HEIGHT = 360.0
 const SURFACES = {
 	"piano":["#ebdff5","#21152a","#7e668e","#4c3357"],
 	"soviet":["#ffe3c4","#371019","#ff735c","#5e2a30"],
@@ -119,6 +120,9 @@ func build_keys() -> void:
 			next += 1
 	note_boxes.clear()
 
+func stage_scale() -> float:
+	return maxf(.1,impact/EFFECT_REFERENCE_HEIGHT)
+
 func cover(texture: Texture2D, height: float) -> void:
 	var target = Vector2(size.x,height)
 	var origin = texture.get_size()
@@ -146,18 +150,18 @@ func paint_background() -> void:
 			for i in range(75):
 				var x = fposmod(sin((i+2)*38.5)*21412.2,1.0)*size.x
 				var y = fposmod(sin((i+3)*85.4)*7942.4,1.0)*impact
-				draw_circle(Vector2(x,y),.65 if i%5 else 1.15,Color(1,.8,1,.19))
+				draw_circle(Vector2(x,y),(.65 if i%5 else 1.15)*stage_scale(),Color(1,.8,1,.19))
 	if settings.lanes:
 		for pitch in blacks:
 			var r: Rect2 = keyboard[pitch]
 			draw_rect(Rect2(r.position.x,0,r.size.x,impact),Color(.02,.01,.04,.13))
 		for pitch in whites:
 			var x: float = keyboard[pitch].position.x
-			draw_line(Vector2(x,0),Vector2(x,impact),Color(1,.75,.72,.22 if pitch%12==0 else .065))
+			draw_line(Vector2(x,0),Vector2(x,impact),Color(1,.75,.72,.22 if pitch%12==0 else .065),maxf(1.0,stage_scale()))
 	if settings.bands:
 		for i in range(1,8):
 			var y = impact*i/8.0
-			draw_line(Vector2(0,y),Vector2(size.x,y),Color(1,.74,.8,.13 if i%2==0 else .07))
+			draw_line(Vector2(0,y),Vector2(size.x,y),Color(1,.74,.8,.13 if i%2==0 else .07),maxf(1.0,stage_scale()))
 	if not glass and name != "black":
 		draw_rect(Rect2(0,impact,size.x,size.y-impact),Color("#140911") if settings.theme=="soviet" else Color("#100b1a"))
 
@@ -176,7 +180,7 @@ func visual_box(rect: Rect2, flat: Color, outline: Color, pixels: int, radius: i
 		box.draw_center = flat.a > 0
 		if glow:
 			box.shadow_color = Color(outline,.42)
-			box.shadow_size = 6
+			box.shadow_size = maxi(1,roundi(6.0*stage_scale()))
 		note_boxes[id] = box
 	draw_style_box(note_boxes[id],rect)
 
@@ -215,9 +219,10 @@ func paint_note(note: Dictionary, color: Color, pixels_per_second: float) -> voi
 		"gradient": body = Color.TRANSPARENT
 	if settings.noteFill == "gradient":
 		paint_gradient(rect,color,radius)
-	visual_box(rect,body,color,1,radius,settings.glow)
-	if settings.glow and settings.noteFill not in ["outline","gradient"] and height > 4 and rect.size.x > 3:
-		draw_rect(Rect2(rect.position.x+1,bottom-2.1,rect.size.x-2,1),Color(1,.95,.88,.58))
+	var edge = maxi(1,roundi(stage_scale()))
+	visual_box(rect,body,color,edge,radius,settings.glow)
+	if settings.glow and settings.noteFill not in ["outline","gradient"] and height > 4*edge and rect.size.x > 3*edge:
+		draw_rect(Rect2(rect.position.x+edge,bottom-2.1*edge,rect.size.x-2*edge,edge),Color(1,.95,.88,.58))
 
 func paint_key(pitch: int, accent: Color, active: bool, style: String, dark: bool) -> void:
 	var rect: Rect2 = keyboard[pitch]
@@ -231,7 +236,8 @@ func paint_key(pitch: int, accent: Color, active: bool, style: String, dark: boo
 		if style == "glass":
 			body.a = .70
 		border = accent.lightened(.32)
-	visual_box(rect,body,border,1,0 if style=="square" else mini(3,int(rect.size.x*.35)),active and settings.keys)
+	var edge = maxi(1,roundi(stage_scale()))
+	visual_box(rect,body,border,edge,0 if style=="square" else mini(3*edge,int(rect.size.x*.35)),active and settings.keys)
 	if not dark and pitch%12 == 0 and key_width > 10.0:
 		var font = ThemeDB.fallback_font
 		var label = "C%d" % (pitch/12-1)
@@ -279,10 +285,11 @@ func _draw() -> void:
 		paint_key(pitch,active.get(pitch,global_key) if settings.layerKeys else global_key,active.has(pitch),style,true)
 	if settings.strikeLine:
 		var accent = Color(palette.get("fill","#ff976f"))
+		var scale_y = stage_scale()
 		if settings.ambient:
 			for offset in range(1,4):
-				draw_line(Vector2(0,impact-offset),Vector2(size.x,impact-offset),Color(accent,.16/offset))
-		draw_line(Vector2(0,impact),Vector2(size.x,impact),accent,1.4)
+				draw_line(Vector2(0,impact-offset*scale_y),Vector2(size.x,impact-offset*scale_y),Color(accent,.16/offset),maxf(1.0,scale_y))
+		draw_line(Vector2(0,impact),Vector2(size.x,impact),accent,maxf(1.0,1.4*scale_y))
 
 func paint_columns(active: Dictionary) -> void:
 	for pitch in active:
@@ -323,13 +330,14 @@ func paint_hit(pitch: int, age: float, color: Color, seed_value: int) -> void:
 	var center: Vector2 = keyboard[pitch].get_center()
 	center.y = impact
 	var style: String = settings.hitStyle
+	var scale_factor = stage_scale()*settings.hitSize/100.0
 	if settings.ripples:
 		var waves = 3 if style == "echo" else 1
 		var radius = 6.0 + age*(68.0 if style == "echo" else 44.0)
 		if style == "pulse":
-			var flare = 22.0 + 48.0*age
+			var flare = (22.0 + 48.0*age)*scale_factor
 			draw_texture_rect(glow_texture,Rect2(center.x-flare,center.y-flare,2*flare,flare),false,Color(color,strength))
-		draw_set_transform(center,0,Vector2(1,.37 if style == "echo" else .33))
+		draw_set_transform(center,0,Vector2(1,.37 if style == "echo" else .33)*scale_factor)
 		for wave in range(waves):
 			draw_arc(Vector2.ZERO,radius+wave*5.0,PI,TAU,18,Color(color,strength*(.70 if style == "echo" else .54)/(1+.30*wave)),1.3,true)
 		draw_set_transform(Vector2.ZERO)
@@ -341,16 +349,16 @@ func paint_hit(pitch: int, age: float, color: Color, seed_value: int) -> void:
 		var ascent = 45.0+fposmod(sin(i*32.5+seed_value)*18382.0,80.0)
 		var x = lateral*(163.0 if style == "fireworks" else 110.0)*age
 		var y = maxf(0,ascent*age*(1.45 if style == "fireworks" else 1.0)-30*age*age)
-		var point = center+Vector2(x,-y)
+		var point = center+Vector2(x,-y)*scale_factor
 		var alpha = Color(color.lightened(.25) if style == "stars" else color,strength*.87)
 		if style == "stars" or style == "pulse":
-			var ray = 2.2 + strength*3.7
-			draw_line(point-Vector2(ray,0),point+Vector2(ray,0),alpha,1.2,true)
-			draw_line(point-Vector2(0,ray),point+Vector2(0,ray),alpha,1.2,true)
+			var ray = (2.2 + strength*3.7)*scale_factor
+			draw_line(point-Vector2(ray,0),point+Vector2(ray,0),alpha,maxf(.55,1.2*scale_factor),true)
+			draw_line(point-Vector2(0,ray),point+Vector2(0,ray),alpha,maxf(.55,1.2*scale_factor),true)
 		elif style == "fireworks":
-			draw_line(point,point+Vector2(-lateral*8.0,6.0),alpha,1.6,true)
+			draw_line(point,point+Vector2(-lateral*8.0,6.0)*scale_factor,alpha,maxf(.55,1.6*scale_factor),true)
 		else:
-			draw_circle(point,.6+strength*1.2,alpha,true)
+			draw_circle(point,(.6+strength*1.2)*scale_factor,alpha,true)
 
 func press_point(pointer: int, point: Vector2, pressed: bool) -> void:
 	var pitch = -1
@@ -368,8 +376,8 @@ func press_point(pointer: int, point: Vector2, pressed: bool) -> void:
 	if previous == pitch:
 		return
 	if previous >= 0:
-		audition.emit(previous,pointer,false)
 		held.erase(pointer)
+		audition.emit(previous,pointer,false)
 	if pitch >= 0:
 		held[pointer] = pitch
 		key_hit(pitch,Time.get_ticks_usec()/1000000.0)

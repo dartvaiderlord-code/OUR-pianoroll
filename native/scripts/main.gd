@@ -39,6 +39,7 @@ var key_count: Label
 var toggle_button: Button
 var volume_button: Button
 var volume_slider: HSlider
+var hit_size_slider: HSlider
 var record_button: Button
 var full_button: Button
 var empty_label: Label
@@ -127,6 +128,7 @@ func read_settings() -> void:
 			custom_background = ImageTexture.create_from_image(image)
 	if not custom_background and settings.background == "custom":
 		settings.background = "theme"
+	settings.hitSize = clampf(settings.hitSize,Design.MIN_HIT_SIZE,Design.MAX_HIT_SIZE)
 
 func save_settings() -> void:
 	var config = ConfigFile.new()
@@ -295,7 +297,11 @@ func rebuild() -> void:
 	roll.custom_minimum_size = Vector2(0,roll_height())
 	roll.size_flags_vertical = SIZE_EXPAND_FILL
 	roll.audition.connect(on_audition)
-	stage.add_child(roll)
+	var roll_frame = MarginContainer.new()
+	roll_frame.clip_contents = true
+	roll_frame.size_flags_vertical = SIZE_EXPAND_FILL
+	stage.add_child(roll_frame)
+	roll_frame.add_child(roll)
 	empty_label = title_at(roll,"",14,true)
 	empty_label.mouse_filter = MOUSE_FILTER_IGNORE
 	empty_label.set_anchors_and_offsets_preset(PRESET_CENTER_TOP)
@@ -327,7 +333,7 @@ func keep_touch_for_control(point: Vector2) -> bool:
 			return true
 	if is_instance_valid(roll) and roll.get_global_rect().has_point(point) and point.y >= roll.get_global_rect().position.y + roll.impact:
 		return true
-	for control in [wave,volume_slider]:
+	for control in [wave,volume_slider,hit_size_slider]:
 		if is_instance_valid(control) and control.is_visible_in_tree() and control.get_global_rect().has_point(point):
 			return true
 	var bar = scroller.get_v_scroll_bar()
@@ -416,6 +422,23 @@ func build_side(parent: Node) -> void:
 	for key in effects_keys:
 		check(side,effects_keys[key],key)
 	option(labeled(side,"keyHitEffect"),localized_choices(Design.HIT_STYLES),settings.hitStyle,func(value): set_option("hitStyle",value))
+	var hit_size_row = spacing(side,true,6)
+	title_at(hit_size_row,label("hitSize"),13)
+	hit_size_slider = HSlider.new()
+	hit_size_slider.min_value = Design.MIN_HIT_SIZE
+	hit_size_slider.max_value = Design.MAX_HIT_SIZE
+	hit_size_slider.step = 5.0
+	hit_size_slider.value = settings.hitSize
+	hit_size_slider.custom_minimum_size.x = 68
+	hit_size_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hit_size_slider.tooltip_text = label("hitSize")
+	hit_size_row.add_child(hit_size_slider)
+	var hit_percent = title_at(hit_size_row,"%d%%" % roundi(settings.hitSize),12,true)
+	hit_percent.custom_minimum_size.x = 36
+	hit_size_slider.value_changed.connect(func(value):
+		hit_percent.text = "%d%%" % roundi(value)
+		set_option("hitSize",value)
+	)
 	var actions = spacing(side,true,5)
 	button(actions,label("keysBackground"),func(): appearance_dialog.popup_centered_clamped(Vector2i(445,0),.92))
 	button(actions,label("moreEffects"),func(): effects_dialog.popup_centered_clamped(Vector2i(420,0),.92))
@@ -867,9 +890,12 @@ func start_live_export(path: String) -> void:
 		music.play()
 
 func on_audition(pitch: int, pointer: int, pressed: bool) -> void:
+	if live_capture.active:
+		var at = live_capture.elapsed()
+		live_capture.add_touch(roll.held,at)
+		if pressed:
+			live_capture.add_hit(pitch,at)
 	music.audition(pitch,pointer,pressed)
-	if live_capture.active and pressed:
-		live_capture.add_hit(pitch)
 
 func finish_live_export() -> void:
 	live_capture.add_frame(music.position,roll.held)

@@ -4,6 +4,7 @@ const App = preload("res://Main.tscn")
 const MIDI = preload("res://scripts/midi.gd")
 const Synth = preload("res://scripts/synth.gd")
 const Text = preload("res://scripts/strings.gd")
+const Design = preload("res://scripts/design.gd")
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -13,6 +14,30 @@ func expect(condition: bool, explanation: String) -> bool:
 		printerr(explanation)
 		quit(1)
 	return condition
+
+func check_soft_onsets(note: Dictionary) -> bool:
+	var synth = Synth.new()
+	var bank = synth.instrument(note)
+	var offset = 1488
+	var original: PackedByteArray = bank.stream.data
+	var resumed = synth.stream_from(note,float(offset)/Synth.RATE).data
+	if not expect(abs(original.decode_s16(offset*2))>1000 and resumed.decode_s16(0)==0,
+			"A late note uses a soft attack even if the original sample starts mid-wave"):
+		return false
+	var ramp = Synth.ATTACK_FRAMES
+	if not expect(resumed.decode_s16(ramp*2)==original.decode_s16((offset+ramp)*2),
+			"An attack keeps the original timing and samples after the envelope"):
+		return false
+	var sustained = note.duplicate()
+	sustained.program = 16
+	var continued = synth.stream_from(sustained,3.1)
+	if not expect(continued.data.decode_s16(0)==0 and continued.loop_begin >= ramp and
+			continued.loop_mode==AudioStreamWAV.LOOP_FORWARD,"Seeking into a loop should not repeat the attack"):
+		return false
+	var pcm = original.slice(offset*2,(offset+2*ramp)*2)
+	var faded = Synth.fade_clip_edges(pcm,0,2*ramp,Synth.RATE)
+	return expect(faded.decode_s16(0)==0 and faded.decode_s16(faded.size()-2)==0,
+		"Exported PCM fades in and out at the clip boundaries")
 
 func check_photo(app: Control) -> bool:
 	var image = Image.create(9,7,false,Image.FORMAT_RGB8)
@@ -90,6 +115,8 @@ func run() -> void:
 		max_value = maxi(max_value,absi(audio.decode_s16(n)))
 	if not expect(max_value>100,"Synth audio should contain an audible signal"):
 		return
+	if not check_soft_onsets(melodic.notes[0]):
+		return
 	if not expect(Text.label("keysBackground","en")=="Keys & Background","English labels"):
 		return
 	print("MIDI, truncation guard, seeking, PCM and localization passed.")
@@ -99,6 +126,12 @@ func run() -> void:
 	await process_frame
 	if not expect(app.active.size()==2 and app.music.duration>46.0,"App starts with two simultaneous MIDI demo parts"):
 		return
+	app.hit_size_slider.value = 250
+	var config = ConfigFile.new()
+	if not expect(config.load(app.SETTINGS_FILE)==OK and config.get_value("style","hitSize")==250.0 and
+			app.roll.settings.hitSize==250.0,"Effect-size slider updates the roll and persists"):
+		return
+	app.hit_size_slider.value = 100
 	if not check_photo(app):
 		return
 	if not OS.get_cmdline_user_args().has("--video"):
@@ -124,18 +157,25 @@ func run() -> void:
 	app.music.seek(0)
 	app.files.clear()
 	app.refresh_files()
-	for pref in ["ambient","bands","lanes","strikeLine","beams"]:
+	for pref in ["ambient","bands","lanes","strikeLine"]:
 		app.set_option(pref,false)
 	app.set_option("background","black")
 	app.set_option("hitStyle","fireworks")
+	app.set_option("keyColor","#00ff00")
+	for pref in ["beams","keys","ripples","particles"]:
+		app.set_option(pref,true)
 	app.roll.manual_hits.clear()
 	app.export_request = {"fps":120.0,"width":640,"height":360,"start":0.0,"end":0.0,"speed":1.0,"volume":.7,"quality":.94,"live":true}
 	var live_video = "user://native-live-120fps.mkv"
 	app.start_live_export(live_video)
 	app.music.pause()
+	app.hit_size_slider.value = 225
 	await create_timer(.10).timeout
 	var key: Rect2 = app.roll.keyboard[60]
 	app.roll.press_point(7,Vector2(key.get_center().x,key.end.y-3),true)
+	if not expect(app.live_capture.touches.back()[1].get(7,-1)==60 and
+			app.live_capture.scenes.back()[1].hitSize==225.0,"Recording captures the key state and user selection at the event"):
+		return
 	await create_timer(.27).timeout
 	app.roll.press_point(7,Vector2.ZERO,false)
 	await create_timer(.18).timeout
@@ -146,4 +186,21 @@ func run() -> void:
 	if not expect(result[0]=="videoSaved","Live keyboard export failed: "+str(result)):
 		return
 	print(ProjectSettings.globalize_path(live_video))
+	var effects = Design.defaults()
+	effects.background = "black"
+	effects.hitStyle = "fireworks"
+	for pref in ["ambient","bands","lanes","strikeLine","beams","keys","glow"]:
+		effects[pref] = false
+	var stroke = MIDI.layer("effect.mid",[
+		{"pitch":60,"start":0.0,"end":.1,"velocity":.85,"program":0,"channel":0}
+	],.4,"#00ff00")
+	for amount in [50,250]:
+		effects.hitSize = float(amount)
+		var clip = "user://native-effect-%d.mkv" % amount
+		app.exporter.render(clip,effects.duplicate(),[stroke],null,app.music.synth,
+			{"fps":120.0,"width":640,"height":360,"start":.28,"end":.29,"speed":1.0,"volume":.7,"quality":.96})
+		result = await app.exporter.finished
+		if not expect(result[0]=="videoSaved","Export with an explicit effect size: "+str(result)):
+			return
+		print(ProjectSettings.globalize_path(clip))
 	quit()
