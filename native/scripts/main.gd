@@ -659,14 +659,14 @@ func load_files(paths: PackedStringArray) -> void:
 		var file = FileAccess.open(path,FileAccess.READ)
 		var midi_name = path.get_file().uri_decode().get_file()
 		if not file:
-			notices.append(["fileError",{"name":midi_name,"error":label("midiReadFailed")}])
+			notices.append(["fileError",{"name":midi_name,"errorKey":"midiReadFailed"}])
 			continue
 		if file.get_length()>16*1024*1024:
-			notices.append(["fileError",{"name":midi_name,"error":label("midiTooLarge")}])
+			notices.append(["fileError",{"name":midi_name,"errorKey":"midiTooLarge"}])
 			continue
 		var parsed = MIDI.new().parse(file.get_buffer(file.get_length()))
 		if parsed.has("error"):
-			notices.append(["fileError",{"name":midi_name,"error":label(parsed.error)}])
+			notices.append(["fileError",{"name":midi_name,"errorKey":parsed.error}])
 		else:
 			imported.append([midi_name,parsed])
 	if not imported.is_empty():
@@ -720,7 +720,10 @@ func show_notice() -> void:
 	if not notice_key.is_empty():
 		parts.append(label(notice_key,notice_args))
 	for item in notices:
-		parts.append(label(item[0],item[1]))
+		var args = item[1].duplicate()
+		if args.has("errorKey"):
+			args.error = label(args.errorKey)
+		parts.append(label(item[0],args))
 	notice_label.text = " · ".join(parts)
 	notice_label.visible = not parts.is_empty()
 

@@ -28,6 +28,15 @@ func _ready() -> void:
 	playback = player.get_stream_playback()
 	change_volume(volume)
 
+func _exit_tree() -> void:
+	stop_notes()
+	if playback:
+		for id in auditions.values():
+			playback.stop_stream(id)
+	auditions.clear()
+	player.stop()
+	playback = null
+
 func change_volume(value: float) -> void:
 	volume = clampf(value,0,1)
 	player.volume_db = linear_to_db(maxf(.000001,volume))

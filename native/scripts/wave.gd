@@ -38,5 +38,5 @@ func _draw() -> void:
 		if bars[i] <= 0:
 			continue
 		var height = minf(size.y-8,4+log(1+bars[i])*17)
-		draw_rect(Rect2(i*step_x,(size.y-height)/2,maxf(.7,step_x-1.2),height),Color(colors[i],.85 if i/BINS<value else .54))
+		draw_rect(Rect2(i*step_x,(size.y-height)/2,maxf(.7,step_x-1.2),height),Color(colors[i],.85 if float(i)/BINS<value else .54))
 	draw_line(Vector2(size.x*value,2),Vector2(size.x*value,size.y-2),Color(skin.gold),1.8)
