@@ -8,6 +8,7 @@ var file: FileAccess
 var path = ""
 var points: Array[Vector2] = []
 var touches = []
+var hits: Array[Vector2] = []
 var scenes = []
 
 func start() -> bool:
@@ -39,6 +40,9 @@ func add_frame(position: float, held: Dictionary) -> void:
 		touches.append([time,held.duplicate()])
 	drain()
 
+func add_hit(pitch: int) -> void:
+	hits.append(Vector2(elapsed(),pitch))
+
 func drain() -> void:
 	var available = effect.get_frames_available()
 	if available<=0:
@@ -62,4 +66,4 @@ func finish() -> Dictionary:
 	file.close()
 	file = null
 	active = false
-	return {"duration":runtime,"points":points,"touches":touches,"scenes":scenes,"pcm":path,"rate":rate}
+	return {"duration":runtime,"points":points,"touches":touches,"hits":hits,"scenes":scenes,"pcm":path,"rate":rate}

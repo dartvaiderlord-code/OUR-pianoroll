@@ -49,6 +49,10 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 	var point_index = 0
 	var touch_index = 0
 	var scene_index = -1
+	var hit_index = 0
+	var hits: Array = capture.get("hits",[])
+	# Allow the offscreen roll and its effect textures to initialize before sampling the first frame.
+	await get_tree().process_frame
 	for frame in range(frames):
 		if cancelled:
 			break
@@ -71,8 +75,11 @@ func render(path: String, settings: Dictionary, layers: Array, custom: Texture2D
 			while touch_index<capture.touches.size()-1 and capture.touches[touch_index+1][0]<=elapsed:
 				touch_index += 1
 			canvas.held = capture.touches[touch_index][1]
+			while hit_index < hits.size() and hits[hit_index].x <= elapsed:
+				canvas.key_hit(int(hits[hit_index].y),hits[hit_index].x)
+				hit_index += 1
 			canvas.queue_redraw()
-		canvas.present(song_time)
+		canvas.present(song_time,elapsed)
 		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
 		var image = viewport.get_texture().get_image()

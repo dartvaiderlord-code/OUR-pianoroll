@@ -679,7 +679,39 @@ const TEXT = {
   ],
   "exportMode": ["Режим видео", "Video mode"],
   "liveRecording": ["Живая запись", "Live recording"],
-  "recordingNow": ["Идёт запись", "Recording"]
+  "recordingNow": ["Идёт запись", "Recording"],
+  "lightColumns": [
+    "Световые столбы",
+    "Light columns"
+  ],
+  "keyHitEffect": [
+    "Эффект нажатия",
+    "Key hit effect"
+  ],
+  "hitClassic": [
+    "Искры и волны",
+    "Sparks and ripples"
+  ],
+  "hitFireworks": [
+    "Фейерверк",
+    "Fireworks"
+  ],
+  "hitEcho": [
+    "Эхо",
+    "Echo"
+  ],
+  "hitStars": [
+    "Звёзды",
+    "Stars"
+  ],
+  "hitPulse": [
+    "Импульс",
+    "Pulse"
+  ],
+  "hitNone": [
+    "Выключен",
+    "Off"
+  ]
 }
 
 static func label(key: String, language: String, values := {}) -> String:

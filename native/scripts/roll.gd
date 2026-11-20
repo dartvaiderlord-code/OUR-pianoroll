@@ -5,6 +5,7 @@ const MIDI = preload("res://scripts/midi.gd")
 const Design = preload("res://scripts/design.gd")
 const PANORAMA = preload("res://assets/soviet-panorama.webp")
 const DARK = [1,3,6,8,10]
+const HIT_LIFETIME = .60
 const SURFACES = {
 	"piano":["#ebdff5","#21152a","#7e668e","#4c3357"],
 	"soviet":["#ffe3c4","#371019","#ff735c","#5e2a30"],
@@ -29,6 +30,9 @@ var keyboard: Dictionary = {}
 var whites: Array = []
 var blacks: Array = []
 var held: Dictionary = {}
+var piano_fingers: Dictionary = {}
+var manual_hits: Array[Vector2] = []
+var effect_time = 0.0
 var impact = 0.0
 var key_width = 0.0
 var cached_size = Vector2.ZERO
@@ -36,9 +40,10 @@ var cached_range = 0
 var note_boxes: Dictionary = {}
 var palette: Dictionary = {}
 var glow_texture: GradientTexture2D
+var column_texture: GradientTexture2D
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	var gradient = Gradient.new()
 	gradient.offsets = PackedFloat32Array([0.0,.25,.62,1.0])
 	gradient.colors = PackedColorArray([Color(1,1,1,.7),Color(1,1,1,.32),Color(1,1,1,.09),Color(1,1,1,0)])
@@ -49,6 +54,15 @@ func _ready() -> void:
 	glow_texture.fill = GradientTexture2D.FILL_RADIAL
 	glow_texture.fill_from = Vector2(.5,.5)
 	glow_texture.fill_to = Vector2(1,.5)
+	var column_gradient = Gradient.new()
+	column_gradient.offsets = PackedFloat32Array([0.0,.38,.78,1.0])
+	column_gradient.colors = PackedColorArray([Color(1,1,1,0),Color(1,1,1,.07),Color(1,1,1,.42),Color(1,1,1,.85)])
+	column_texture = GradientTexture2D.new()
+	column_texture.gradient = column_gradient
+	column_texture.width = 8
+	column_texture.height = 128
+	column_texture.fill_from = Vector2.ZERO
+	column_texture.fill_to = Vector2.DOWN
 	resized.connect(queue_redraw)
 
 func configure(new_settings: Dictionary, active: Array, custom: Texture2D) -> void:
@@ -59,8 +73,16 @@ func configure(new_settings: Dictionary, active: Array, custom: Texture2D) -> vo
 	note_boxes.clear()
 	queue_redraw()
 
-func present(at: float) -> void:
-	if not is_equal_approx(at,playback_time):
+func key_hit(pitch: int, at: float) -> void:
+	manual_hits.append(Vector2(at,pitch))
+	queue_redraw()
+
+func present(at: float, clock := -1.0) -> void:
+	var had_hits = not manual_hits.is_empty()
+	effect_time = Time.get_ticks_usec()/1000000.0 if clock < 0 else clock
+	while not manual_hits.is_empty() and effect_time-manual_hits[0].x >= HIT_LIFETIME:
+		manual_hits.pop_front()
+	if not is_equal_approx(at,playback_time) or had_hits:
 		playback_time = at
 		queue_redraw()
 
@@ -241,18 +263,11 @@ func _draw() -> void:
 	for pitch in held.values():
 		active[pitch] = Design.key_color(settings)
 	if settings.beams:
-		for pitch in active:
-			var r: Rect2 = keyboard.get(pitch,Rect2())
-			if r.size.x < 1:
-				continue
-			var cx = r.get_center().x
-			var shade = Color(active[pitch],.67)
-			var beam_width = maxf(25,r.size.x*4.4)
-			draw_texture_rect(glow_texture,Rect2(cx-beam_width*.5,impact*.58,beam_width,impact*.42),false,shade)
+		paint_columns(active)
 	for row in range(shown.size()-1,-1,-1):
 		for item in shown[row]:
 			paint_note(item[0],item[1],scale)
-	if settings.particles or settings.ripples:
+	if settings.hitStyle != "none" and (settings.particles or settings.ripples):
 		paint_impacts()
 	var style: String = settings.keyStyle
 	if style == "theme":
@@ -269,33 +284,73 @@ func _draw() -> void:
 				draw_line(Vector2(0,impact-offset),Vector2(size.x,impact-offset),Color(accent,.16/offset))
 		draw_line(Vector2(0,impact),Vector2(size.x,impact),accent,1.4)
 
+func paint_columns(active: Dictionary) -> void:
+	for pitch in active:
+		var r: Rect2 = keyboard.get(pitch,Rect2())
+		if r.size.x < 1:
+			continue
+		var center = r.get_center().x
+		var color: Color = active[pitch]
+		var height = impact * .42
+		var width = maxf(2.0,r.size.x * .48)
+		draw_texture_rect(column_texture,Rect2(center-width*1.4,impact-height,width*2.8,height),false,Color(color,.24))
+		draw_texture_rect(column_texture,Rect2(center-width*.5,impact-height,width,height),false,Color(color,.74))
+
 func paint_impacts() -> void:
 	var remaining = 55
+	for hit in manual_hits:
+		var age = effect_time-hit.x
+		if age >= 0 and age < HIT_LIFETIME and keyboard.has(int(hit.y)):
+			paint_hit(int(hit.y),age,Design.key_color(settings),int(hit.y)*17)
+			remaining -= 1
+			if remaining <= 0:
+				return
 	for track in layers:
-		for i in range(MIDI.next_note(track,maxf(0,playback_time-.60)),track.notes.size()):
+		for i in range(MIDI.next_note(track,maxf(0,playback_time-HIT_LIFETIME)),track.notes.size()):
 			var note = track.notes[i]
 			var age = playback_time-note.start
 			if age < 0:
 				break
 			if not keyboard.has(note.pitch):
 				continue
-			var strength = clampf(1.0-age/.60,0,1)
-			var center: Vector2 = keyboard[note.pitch].get_center()
-			center.y = impact
-			var color = Design.note_color(settings,track,note)
-			if settings.ripples:
-				var radius = 6.0 + age*44.0
-				draw_set_transform(center,0,Vector2(1,.33))
-				draw_arc(Vector2.ZERO,radius,PI,TAU,14,Color(color,strength*.54),1,true)
-				draw_set_transform(Vector2.ZERO)
-			if settings.particles:
-				for j in range(7):
-					var x = sin((j+1)*37.0+i*2.3)*110.0*age
-					var y = maxf(0,(45.0+fposmod(sin(j*32.5+i)*18382.0,80.0))*age-30*age*age)
-					draw_circle(center+Vector2(x,-y),.6+strength*1.2,Color(color,strength*.87),true)
+			paint_hit(note.pitch,age,Design.note_color(settings,track,note),i)
 			remaining -= 1
 			if remaining <= 0:
 				return
+
+func paint_hit(pitch: int, age: float, color: Color, seed_value: int) -> void:
+	var strength = clampf(1.0-age/HIT_LIFETIME,0,1)
+	var center: Vector2 = keyboard[pitch].get_center()
+	center.y = impact
+	var style: String = settings.hitStyle
+	if settings.ripples:
+		var waves = 3 if style == "echo" else 1
+		var radius = 6.0 + age*(68.0 if style == "echo" else 44.0)
+		if style == "pulse":
+			var flare = 22.0 + 48.0*age
+			draw_texture_rect(glow_texture,Rect2(center.x-flare,center.y-flare,2*flare,flare),false,Color(color,strength))
+		draw_set_transform(center,0,Vector2(1,.37 if style == "echo" else .33))
+		for wave in range(waves):
+			draw_arc(Vector2.ZERO,radius+wave*5.0,PI,TAU,18,Color(color,strength*(.70 if style == "echo" else .54)/(1+.30*wave)),1.3,true)
+		draw_set_transform(Vector2.ZERO)
+	if not settings.particles:
+		return
+	var count = 13 if style == "fireworks" else 5 if style == "echo" else 7
+	for i in range(count):
+		var lateral = sin((i+1)*37.0+seed_value*2.3)
+		var ascent = 45.0+fposmod(sin(i*32.5+seed_value)*18382.0,80.0)
+		var x = lateral*(163.0 if style == "fireworks" else 110.0)*age
+		var y = maxf(0,ascent*age*(1.45 if style == "fireworks" else 1.0)-30*age*age)
+		var point = center+Vector2(x,-y)
+		var alpha = Color(color.lightened(.25) if style == "stars" else color,strength*.87)
+		if style == "stars" or style == "pulse":
+			var ray = 2.2 + strength*3.7
+			draw_line(point-Vector2(ray,0),point+Vector2(ray,0),alpha,1.2,true)
+			draw_line(point-Vector2(0,ray),point+Vector2(0,ray),alpha,1.2,true)
+		elif style == "fireworks":
+			draw_line(point,point+Vector2(-lateral*8.0,6.0),alpha,1.6,true)
+		else:
+			draw_circle(point,.6+strength*1.2,alpha,true)
 
 func press_point(pointer: int, point: Vector2, pressed: bool) -> void:
 	var pitch = -1
@@ -317,18 +372,36 @@ func press_point(pointer: int, point: Vector2, pressed: bool) -> void:
 		held.erase(pointer)
 	if pitch >= 0:
 		held[pointer] = pitch
+		key_hit(pitch,Time.get_ticks_usec()/1000000.0)
 		audition.emit(pitch,pointer,true)
 	queue_redraw()
 
+func release_touches() -> void:
+	for pointer in held.keys():
+		press_point(pointer,Vector2.ZERO,false)
+	piano_fingers.clear()
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
+		if event.pressed and event.position.y >= impact:
+			piano_fingers[event.index] = true
+		if not piano_fingers.has(event.index):
+			return
 		press_point(event.index,event.position,event.pressed)
+		if not event.pressed:
+			piano_fingers.erase(event.index)
 		accept_event()
-	elif event is InputEventScreenDrag:
+	elif event is InputEventScreenDrag and piano_fingers.has(event.index):
 		press_point(event.index,event.position,true)
 		accept_event()
 	elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.device!=InputEvent.DEVICE_ID_EMULATION:
+		if event.pressed and event.position.y >= impact:
+			piano_fingers[-1] = true
+		if not piano_fingers.has(-1):
+			return
 		press_point(-1,event.position,event.pressed)
+		if not event.pressed:
+			piano_fingers.erase(-1)
 		accept_event()
-	elif event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT and event.device!=InputEvent.DEVICE_ID_EMULATION:
+	elif event is InputEventMouseMotion and piano_fingers.has(-1) and event.button_mask & MOUSE_BUTTON_MASK_LEFT and event.device!=InputEvent.DEVICE_ID_EMULATION:
 		press_point(-1,event.position,true)

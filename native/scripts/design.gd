@@ -1,18 +1,22 @@
 extends RefCounted
 
 const MIDI = preload("res://scripts/midi.gd")
-const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys"]
+const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys","hitStyle"]
 const BACKGROUNDS = {"theme":"matchTheme","aurora":"aurora","black":"black","orbit":"orbit","ocean":"ocean","sunset":"sunset","custom":"customBackground"}
 const KEY_STYLES = {"theme":"matchTheme","piano":"pianoKeys","glass":"glassKeys","neon":"neonKeys","matte":"matteKeys","square":"squareKeys","gold":"goldKeys","spectrum":"rainbowKeys","ice":"iceKeys","inverted":"invertedKeys"}
 const NOTE_MODES = {"solid":"colorSingle","pitch":"colorByPitch","octave":"colorByOctave","rainbow":"colorRainbow"}
 const FILLS = {"translucent":"fillTranslucent","solid":"fillSolid","outline":"fillOutline","gradient":"fillGradient"}
+const HIT_STYLES = {
+	"classic":"hitClassic","fireworks":"hitFireworks","echo":"hitEcho",
+	"stars":"hitStars","pulse":"hitPulse","none":"hitNone"
+}
 
 static func defaults() -> Dictionary:
 	return {
 		"theme":"soviet","language":"ru","noteColor":"","keyColor":"","keyStyle":"theme","background":"theme","backgroundShade":28.0,
 		"range":88,"horizon":4.5,"noteRoundness":50.0,"noteFill":"translucent",
 		"ambient":true,"bands":true,"lanes":true,"strikeLine":true,"glow":true,"keys":true,
-		"particles":true,"beams":true,"ripples":true,"layerKeys":false
+		"particles":true,"beams":true,"ripples":true,"layerKeys":false,"hitStyle":"classic"
 	}
 
 static func theme_colors(settings: Dictionary) -> Dictionary:

@@ -8,6 +8,8 @@ const Wave = preload("res://scripts/wave.gd")
 const Transport = preload("res://scripts/transport.gd")
 const Exporter = preload("res://scripts/exporter.gd")
 const LiveCapture = preload("res://scripts/live_capture.gd")
+const TouchScroll = preload("res://scripts/touch_scroll.gd")
+const BackgroundImage = preload("res://scripts/background_image.gd")
 const APP_ICON = preload("res://assets/icon.png")
 const BACKGROUND_FILE = "user://background.webp"
 const SETTINGS_FILE = "user://interface.cfg"
@@ -20,12 +22,12 @@ var custom_background: Texture2D
 var music: Node
 var exporter: Node
 var layout: Control
+var scroller: ScrollContainer
 var shell: VBoxContainer
 var roll: Control
 var wave: Control
 var stage: VBoxContainer
 var transport_bar: VBoxContainer
-var header: Control
 var intro: Control
 var side: VBoxContainer
 var tracks: VBoxContainer
@@ -208,6 +210,8 @@ func button(parent: Node, text: String, action: Callable, primary := false) -> B
 
 func option(parent: Node, choices: Dictionary, current, update: Callable) -> OptionButton:
 	var control = OptionButton.new()
+	if mobile():
+		control.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
 	var keys = choices.keys()
 	for key in keys:
 		control.add_item(choices[key])
@@ -223,6 +227,9 @@ func localized_choices(keys: Dictionary) -> Dictionary:
 	return choices
 
 func rebuild() -> void:
+	var last_scroll = scroller.scroll_vertical if is_instance_valid(scroller) else 0
+	if is_instance_valid(roll):
+		roll.release_touches()
 	if layout:
 		remove_child(layout)
 		layout.queue_free()
@@ -236,38 +243,33 @@ func rebuild() -> void:
 	backdrop.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	backdrop.mouse_filter = MOUSE_FILTER_IGNORE
 	layout.add_child(backdrop)
-	var scroller = ScrollContainer.new()
+	scroller = TouchScroll.new()
+	scroller.touch_enabled = mobile()
+	scroller.keeps_touch = keep_touch_for_control
 	scroller.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	layout.add_child(scroller)
 	shell = spacing(scroller,false,11)
 	shell.size_flags_horizontal = SIZE_EXPAND_FILL
-	var top = panel(shell,skin.head,skin.line,10)
-	header = top
-	var nav = spacing(top,true,8)
-	var icon = TextureRect.new()
-	icon.texture = APP_ICON
-	icon.custom_minimum_size = Vector2(34,34)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	nav.add_child(icon)
-	title_at(nav,"OUR-pianoroll",17)
-	spring(nav)
-	button(nav,label("demo"),use_demo)
-	button(nav,label("loadMidi"),pick_midi,true)
 
 	var margin = MarginContainer.new()
 	for edge in ["left","right"]:
 		margin.add_theme_constant_override("margin_"+edge,12 if compact else 28)
+	margin.add_theme_constant_override("margin_top",12 if compact else 20)
 	shell.add_child(margin)
 	var content = spacing(margin,false,12)
 	var heading = spacing(content,not compact,8)
 	intro = heading
-	var text_column = spacing(heading,false,4)
-	title_at(text_column,label("visualizer"),27 if compact else 37)
-	var subtitle = title_at(text_column,label("intro"),14,true)
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_column.size_flags_horizontal = SIZE_EXPAND_FILL
+	var brand = spacing(heading,true,10)
+	brand.size_flags_horizontal = SIZE_EXPAND_FILL
+	var icon = TextureRect.new()
+	icon.texture = APP_ICON
+	icon.custom_minimum_size = Vector2(43,43) if compact else Vector2(50,50)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = MOUSE_FILTER_IGNORE
+	brand.add_child(icon)
+	title_at(brand,"OUR-pianoroll",27 if compact else 35)
 	var commands = spacing(heading,true,7)
 	commands.size_flags_vertical = Control.SIZE_SHRINK_END
 	option(commands,{"ru":"Русский","en":"English"},settings.language,func(value): set_option("language",value,true))
@@ -292,7 +294,7 @@ func rebuild() -> void:
 	roll = Roll.new()
 	roll.custom_minimum_size = Vector2(0,roll_height())
 	roll.size_flags_vertical = SIZE_EXPAND_FILL
-	roll.audition.connect(music.audition)
+	roll.audition.connect(on_audition)
 	stage.add_child(roll)
 	empty_label = title_at(roll,"",14,true)
 	empty_label.mouse_filter = MOUSE_FILTER_IGNORE
@@ -314,8 +316,22 @@ func rebuild() -> void:
 	refresh_track_content()
 	show_notice()
 	show_state()
+	if last_scroll > 0:
+		scroller.set_deferred("scroll_vertical",last_scroll)
 	if immersive:
 		apply_immersive()
+
+func keep_touch_for_control(point: Vector2) -> bool:
+	for popup in [effects_dialog,appearance_dialog,export_dialog,export_progress,picker]:
+		if is_instance_valid(popup) and popup.visible:
+			return true
+	if is_instance_valid(roll) and roll.get_global_rect().has_point(point) and point.y >= roll.get_global_rect().position.y + roll.impact:
+		return true
+	for control in [wave,volume_slider]:
+		if is_instance_valid(control) and control.is_visible_in_tree() and control.get_global_rect().has_point(point):
+			return true
+	var bar = scroller.get_v_scroll_bar()
+	return bar.is_visible_in_tree() and bar.get_global_rect().has_point(point)
 
 func build_transport(parent: Node) -> void:
 	transport_bar = spacing(panel(parent,skin.panel,skin.line,7),false,4)
@@ -380,19 +396,26 @@ func build_side(parent: Node) -> void:
 	spring(limits)
 	number(limits,limit,1,16,1,func(value): set_limit(int(value)))
 	var listing = ScrollContainer.new()
-	listing.custom_minimum_size.y = 100
+	if mobile():
+		listing.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	else:
+		listing.custom_minimum_size.y = 100
 	listing.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	side.add_child(listing)
 	tracks = spacing(listing,false,5)
 	tracks.size_flags_horizontal = SIZE_EXPAND_FILL
-	button(side,label("addMidi"),pick_midi)
+	var file_actions = spacing(side,true,5)
+	button(file_actions,label("addMidi"),pick_midi,true).size_flags_horizontal = SIZE_EXPAND_FILL
+	button(file_actions,label("demo"),use_demo)
 	side.add_child(HSeparator.new())
 	title_at(side,label("visualEffects"),15)
 	var colors = spacing(side,true,5)
 	color_control(colors,"noteColor",Design.track_color(settings,{"color":"","demo":""}),func(value): set_option("noteColor",value))
 	color_control(colors,"keyColor",Design.key_color(settings),func(value): set_option("keyColor",value))
-	for key in {"glow":"neonNotes","keys":"keyGlow","particles":"particles","beams":"beams"}:
-		check(side,{"glow":"neonNotes","keys":"keyGlow","particles":"particles","beams":"beams"}[key],key)
+	var effects_keys = {"glow":"neonNotes","keys":"keyGlow","particles":"particles","beams":"lightColumns"}
+	for key in effects_keys:
+		check(side,effects_keys[key],key)
+	option(labeled(side,"keyHitEffect"),localized_choices(Design.HIT_STYLES),settings.hitStyle,func(value): set_option("hitStyle",value))
 	var actions = spacing(side,true,5)
 	button(actions,label("keysBackground"),func(): appearance_dialog.popup_centered_clamped(Vector2i(445,0),.92))
 	button(actions,label("moreEffects"),func(): effects_dialog.popup_centered_clamped(Vector2i(420,0),.92))
@@ -419,6 +442,8 @@ func color_control(parent: Node, key: String, color: Color, change: Callable) ->
 	if not key.is_empty():
 		title_at(row,label(key),12,true)
 	var box = ColorPickerButton.new()
+	if mobile():
+		box.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
 	box.color = color
 	box.edit_alpha = false
 	box.custom_minimum_size = Vector2(25,25)
@@ -557,6 +582,8 @@ func refresh_track_content() -> void:
 		var status = "layerDisabled" if not track.enabled else "layerOverLimit" if not inside else "demo" if not track.demo.is_empty() else ""
 		title_at(details,(label(status)+" · " if not status.is_empty() else "")+clock(track.duration),11,true)
 		var color_choice = ColorPickerButton.new()
+		if mobile():
+			color_choice.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
 		color_choice.edit_alpha = false
 		color_choice.color = tone
 		color_choice.custom_minimum_size = Vector2(23,23)
@@ -684,21 +711,22 @@ func load_files(paths: PackedStringArray) -> void:
 	show_notice()
 
 func pick_background() -> void:
-	var picker_image = select_path(label("uploadImage"),FileDialog.FILE_MODE_OPEN_FILE,["*.jpg,*.jpeg,*.png,*.webp,*.bmp ; Image"])
+	var formats = ["*.jpg,*.jpeg,*.png,*.webp,*.bmp ; Image"]
+	if mobile():
+		formats = ["*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.heic,*.heif,*.avif,*.gif ; Image ; image/*"]
+	var picker_image = select_path(label("uploadImage"),FileDialog.FILE_MODE_OPEN_FILE,formats)
 	picker_image.file_selected.connect(load_background)
 	picker_image.popup_centered_ratio(.8)
 
 func load_background(path: String) -> void:
-	var image = Image.load_from_file(path)
+	var image = BackgroundImage.load_selected(path)
 	if not image or image.is_empty():
 		set_notice("imageOpenFailed")
 		return
-	if maxi(image.get_width(),image.get_height())>1920:
-		var factor = 1920.0/maxi(image.get_width(),image.get_height())
-		image.resize(maxi(1,roundi(factor*image.get_width())),maxi(1,roundi(factor*image.get_height())),Image.INTERPOLATE_LANCZOS)
 	custom_background = ImageTexture.create_from_image(image)
-	image.save_webp(BACKGROUND_FILE,false,.87)
+	var saved = image.save_webp(BACKGROUND_FILE,false,.87)
 	set_option("background","custom",true)
+	set_notice("" if saved == OK else "imageSessionOnly")
 
 func pick_html() -> void:
 	var save = select_path(label("downloadHtml"),FileDialog.FILE_MODE_SAVE_FILE,["*.html ; HTML"])
@@ -761,7 +789,6 @@ func roll_height() -> float:
 	return clampf(size.y*.46,240,410) if compact else clampf(size.y*.52,365,587)
 
 func apply_immersive() -> void:
-	header.visible = not immersive
 	intro.visible = not immersive
 	side.get_parent().visible = settings_visible and not immersive
 	transport_bar.get_parent().visible = not immersive
@@ -828,11 +855,21 @@ func start_live_export(path: String) -> void:
 		return
 	live_path = path
 	live_capture.add_scene(settings,active,custom_background)
+	var start = live_capture.start_ticks/1000000.0
+	for hit in roll.manual_hits:
+		var relative = hit.x-start
+		if relative > -Roll.HIT_LIFETIME:
+			live_capture.hits.append(Vector2(relative,hit.y))
 	live_capture.add_frame(music.position,roll.held)
 	record_button.text = label("stop")
 	record_button.tooltip_text = label("stopRecording")
 	if not active.is_empty():
 		music.play()
+
+func on_audition(pitch: int, pointer: int, pressed: bool) -> void:
+	music.audition(pitch,pointer,pressed)
+	if live_capture.active and pressed:
+		live_capture.add_hit(pitch)
 
 func finish_live_export() -> void:
 	live_capture.add_frame(music.position,roll.held)
@@ -865,6 +902,8 @@ func _process(_delta: float) -> void:
 			show_state()
 	elif roll.playback_time != music.position or toggle_button.text == "Ⅱ":
 		show_state()
+	elif not roll.manual_hits.is_empty():
+		roll.present(music.position)
 	if live_capture.active:
 		live_capture.add_frame(music.position,roll.held)
 
