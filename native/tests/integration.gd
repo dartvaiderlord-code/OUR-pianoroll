@@ -110,10 +110,10 @@ func check_dense_chord() -> bool:
 	AudioServer.remove_bus_effect(0,capture_index)
 	transport.queue_free()
 	await process_frame
-	print("Native mixer: cold 48-key chord %.1f ms, peaks %.3f solo / %.3f chord, onset difference %.4f" %
+	print("Native mixer: play request %.1f ms, peaks %.3f solo / %.3f chord, onset difference %.4f" %
 		[cold_start_ms,solo_peak,chord_peak,difference])
-	return expect(cold_start_ms < 250.0 and solo_peak>.12 and solo_peak<.25 and chord_peak>.5 and chord_peak<.92 and difference<.02,
-		"A cold chord starts together and its attack matches a warm playback with the limiter bypassed")
+	return expect(cold_start_ms < 25.0 and solo_peak>.12 and solo_peak<.25 and chord_peak>.5 and chord_peak<.92 and difference<.02,
+		"A cold chord prepares without blocking Play and its attack matches warm playback with the limiter bypassed")
 
 func check_photo(app: Control) -> bool:
 	var image = Image.create(9,7,false,Image.FORMAT_RGB8)

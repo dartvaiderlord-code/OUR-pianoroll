@@ -1,33 +1,37 @@
 extends Node
 
-const MIDI = preload("res://scripts/midi.gd")
 const Synth = preload("res://scripts/synth.gd")
-const POLYPHONY = 128
-const CHORD_PEAK_TARGET = .73
-const PREVIEW_STEP = 13
-const PREVIEW_LENGTH = Synth.RATE/10
-const ONSET_WINDOW = .001
-const NORMAL_SCHEDULING_DELAY = .032
+const AudioPlan = preload("res://scripts/audio_plan.gd")
+const PLAN_SECONDS = 1.25
+const REFILL_SECONDS = .80
 var synth = Synth.new()
+var planner = AudioPlan.new()
 var layers: Array = []
-var indexes: Array = []
 var duration = 0.0
 var position = 0.0
 var speed = 1.0
 var volume = .7
 var loop = false
 var playing = false
+var clock_ready = false
 var anchor = 0.0
 var anchor_ticks = 0
 var player: AudioStreamPlayer
 var playback: AudioStreamPlaybackPolyphonic
 var voices: Array = []
 var auditions: Dictionary = {}
+var plan_revision = 0
+var plan_until = 0.0
+var resume_plan = true
+var task = -1
+var job: Dictionary = {}
+var planned: Array = []
+var next_chord = 0
 
 func _ready() -> void:
 	player = AudioStreamPlayer.new()
 	var poly = AudioStreamPolyphonic.new()
-	poly.polyphony = POLYPHONY
+	poly.polyphony = AudioPlan.POLYPHONY
 	player.stream = poly
 	player.bus = &"Piano"
 	add_child(player)
@@ -36,6 +40,9 @@ func _ready() -> void:
 	change_volume(volume)
 
 func _exit_tree() -> void:
+	if task != -1:
+		job.cancel.post()
+		WorkerThreadPool.wait_for_task_completion(task)
 	stop_notes()
 	if playback:
 		for id in auditions.values():
@@ -49,25 +56,28 @@ func change_volume(value: float) -> void:
 	player.volume_db = linear_to_db(maxf(.000001,volume))
 
 func replace(active: Array) -> void:
-	layers = active
+	layers = []
+	for layer in active:
+		layers.append({"notes":layer.notes,"prefix":layer.prefix})
 	duration = 0
-	for layer in layers:
+	for layer in active:
 		duration = maxf(duration,layer.duration)
 	seek(minf(position,duration))
-	if duration <= 0:
-		pause()
 
 func play() -> void:
 	if duration <= 0 or playing:
 		return
 	if position >= duration-.001:
-		position = 0
+		seek(0)
 	playing = true
-	start_clock()
+	request_plan()
 
 func pause() -> void:
+	if not playing:
+		return
 	playing = false
 	stop_notes()
+	reset_plan()
 
 func toggle() -> void:
 	if playing:
@@ -78,101 +88,72 @@ func toggle() -> void:
 func seek(at: float) -> void:
 	position = clampf(at,0,duration)
 	stop_notes()
-	if playing:
-		if position >= duration:
-			pause()
-		else:
-			start_clock()
+	if position >= duration:
+		playing = false
+	reset_plan()
 
 func change_speed(value: float) -> void:
 	speed = value
-	if playing:
-		seek(position)
+	seek(position)
 
-func start_clock() -> void:
-	anchor = position
-	indexes.clear()
-	var pending: Array = []
-	for layer in layers:
-		var next = MIDI.next_note(layer,position)
-		indexes.append(next)
-		for i in range(MIDI.from_time(layer,position),next):
-			var note = layer.notes[i]
-			if note.end > position:
-				prepare_note(pending,note,position,(position-note.start)/speed)
-	collect_new_notes(pending)
-	start_notes(pending)
-	anchor_ticks = Time.get_ticks_usec()
+func reset_plan() -> void:
+	clock_ready = false
+	plan_revision += 1
+	if task != -1:
+		job.cancel.post()
+	plan_until = position
+	resume_plan = true
+	planned.clear()
+	next_chord = 0
+	request_plan()
 
-func prepare_note(pending: Array, note: Dictionary, onset: float, offset: float) -> void:
-	if pending.size() >= POLYPHONY:
+func request_plan() -> void:
+	if task != -1 or plan_until >= duration or (not playing and not resume_plan):
 		return
-	var wav = synth.stream_from(note,offset)
-	if not wav:
+	if plan_until-position >= REFILL_SECONDS*speed:
 		return
-	pending.append({"stream":wav,"onset":onset,"end":note.end,"gain":pow(note.velocity,1.65)*.31})
+	job = {"revision":plan_revision,"layers":layers,"speed":speed,"start":plan_until,
+		"end":minf(duration,plan_until+PLAN_SECONDS*speed),"resume":resume_plan,"cancel":Semaphore.new()}
+	task = WorkerThreadPool.add_task(planner.build.bind(job),true,"Prepare MIDI audio")
 
-func collect_new_notes(pending: Array) -> void:
-	for row in range(layers.size()):
-		var layer = layers[row]
-		var at = indexes[row]
-		while at < layer.notes.size() and layer.notes[at].start <= position:
-			var note = layer.notes[at]
-			if note.end > position:
-				var delay = (position-note.start)/speed
-				prepare_note(pending,note,note.start,0.0 if delay <= NORMAL_SCHEDULING_DELAY else delay)
-			at += 1
-		indexes[row] = at
-
-func start_notes(pending: Array) -> void:
-	if pending.is_empty():
+func collect_plan() -> void:
+	if task == -1 or not WorkerThreadPool.is_task_completed(task):
 		return
-	pending.sort_custom(func(a,b): return a.onset < b.onset)
-	var first = 0
-	while first < pending.size():
-		var end = first
-		var total = 0.0
-		var limit: float = pending[first].onset+ONSET_WINDOW*speed
-		while end < pending.size() and pending[end].onset <= limit:
-			total += pending[end].gain
-			end += 1
-		# Keep the same gain through the whole attack instead of riding each peak of a chord.
-		var scale = chord_gain(pending,first,end) if total > CHORD_PEAK_TARGET else 1.0
-		for i in range(first,end):
-			pending[i].gain_db = linear_to_db(maxf(.00001,pending[i].gain*scale))
-		first = end
-	# Publish the prepared voices together so a mixer callback cannot split their onset.
-	AudioServer.lock()
-	for note in pending:
-		var id = playback.play_stream(note.stream,0,note.gain_db,1.0,AudioServer.PLAYBACK_TYPE_STREAM)
-		if id != AudioStreamPlaybackPolyphonic.INVALID_ID:
-			voices.append({"id":id,"end":note.end})
-	AudioServer.unlock()
-
-func chord_gain(pending: Array, first: int, end: int) -> float:
-	var preview = PackedFloat32Array()
-	preview.resize(ceili(float(PREVIEW_LENGTH)/PREVIEW_STEP))
-	for i in range(first,end):
-		var note: Dictionary = pending[i]
-		var pcm: PackedByteArray = note.stream.data
-		var frames = mini(pcm.size()/2,roundi((note.end-position)*Synth.RATE/speed))
-		var count = mini(preview.size(),ceili(float(frames)/PREVIEW_STEP))
-		var gain: float = note.gain/32767.0
-		for frame in range(count):
-			preview[frame] += pcm.decode_s16(frame*PREVIEW_STEP*2)*gain
-	var peak = CHORD_PEAK_TARGET
-	for sample in preview:
-		peak = maxf(peak,absf(sample))
-	return CHORD_PEAK_TARGET/peak
+	WorkerThreadPool.wait_for_task_completion(task)
+	task = -1
+	if job.revision == plan_revision:
+		planned = planned.slice(next_chord)
+		planned.append_array(job.result)
+		next_chord = 0
+		plan_until = minf(duration,job.covered)
+		resume_plan = false
+	job = {}
 
 func schedule() -> void:
 	for i in range(voices.size()-1,-1,-1):
 		if voices[i].end <= position:
 			playback.stop_stream(voices[i].id)
 			voices.remove_at(i)
-	var pending: Array = []
-	collect_new_notes(pending)
-	start_notes(pending)
+	if next_chord >= planned.size() or planned[next_chord].onset > position:
+		return
+	var due: Array = []
+	while next_chord < planned.size() and planned[next_chord].onset <= position:
+		for note in planned[next_chord].events:
+			if due.size() >= AudioPlan.POLYPHONY:
+				break
+			if note.end > position:
+				due.append(note)
+		next_chord += 1
+	if due.is_empty():
+		return
+	# Publish the already prepared streams together under a short audio lock.
+	AudioServer.lock()
+	for note in due:
+		var id = playback.play_stream(note.stream,0,note.gain_db,1.0,AudioServer.PLAYBACK_TYPE_STREAM)
+		if id == AudioStreamPlaybackPolyphonic.INVALID_ID:
+			break
+		voices.append({"id":id,"end":note.end})
+	AudioServer.unlock()
 
 func stop_notes() -> void:
 	if playback:
@@ -191,13 +172,21 @@ func audition(pitch: int, pointer: int, pressed: bool) -> void:
 			auditions[pointer] = id
 
 func _process(_delta: float) -> void:
-	if not playing:
-		return
-	position = minf(duration,anchor+(Time.get_ticks_usec()-anchor_ticks)*speed/1000000.0)
-	if position >= duration:
-		if loop and duration > 0:
-			seek(0)
-		else:
-			pause()
-	else:
-		schedule()
+	collect_plan()
+	if playing:
+		if not clock_ready and plan_until > position:
+			anchor = position
+			anchor_ticks = Time.get_ticks_usec()
+			clock_ready = true
+		if clock_ready:
+			var target = anchor+(Time.get_ticks_usec()-anchor_ticks)*speed/1000000.0
+			position = minf(plan_until,target)
+			if position >= duration:
+				if loop:
+					seek(0)
+				else:
+					pause()
+			else:
+				schedule()
+				clock_ready = target < plan_until
+	request_plan()
