@@ -39,6 +39,8 @@ godot --headless --path native --export-release Windows "$PWD/build/our-pianorol
 godot --headless --path native --export-release Android "$PWD/build/our-pianoroll.apk"
 ```
 
+Файл `native/assets/sound-bank.bin` содержит готовые сэмплы синтезатора. После изменения тембров его можно пересобрать командой `godot --headless --path native --script res://tools/build_sound_bank.gd`.
+
 Для подписи APK в Godot задайте `GODOT_ANDROID_KEYSTORE_RELEASE_PATH`, `GODOT_ANDROID_KEYSTORE_RELEASE_USER` и `GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD`. APK первого релиза подписан ключом разработки. Для последующего обновления поверх установленного APK нужен тот же ключ.
 
 Проверка движка и интеграции

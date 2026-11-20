@@ -39,23 +39,45 @@ func check_soft_onsets(note: Dictionary) -> bool:
 	return expect(faded.decode_s16(0)==0 and faded.decode_s16(faded.size()-2)==0,
 		"Exported PCM fades in and out at the clip boundaries")
 
-func capture_peak(capture: AudioEffectCapture, duration: float) -> float:
-	var peak = 0.0
+func capture_audio(capture: AudioEffectCapture, duration: float) -> PackedFloat32Array:
+	var samples = PackedFloat32Array()
 	var deadline = Time.get_ticks_msec()+roundi(duration*1000.0)
 	while Time.get_ticks_msec() < deadline:
 		await create_timer(.05).timeout
 		var available = capture.get_frames_available()
 		if available > 0:
 			for frame in capture.get_buffer(available):
-				peak = maxf(peak,maxf(absf(frame.x),absf(frame.y)))
+				samples.append(frame.x)
+	return samples
+
+func audio_peak(samples: PackedFloat32Array) -> float:
+	var peak = 0.0
+	for sample in samples:
+		peak = maxf(peak,absf(sample))
 	return peak
+
+func wave_start(samples: PackedFloat32Array) -> int:
+	for i in range(samples.size()):
+		if absf(samples[i]) > .001:
+			return i
+	return samples.size()
+
+func onset_difference(a: PackedFloat32Array, b: PackedFloat32Array) -> float:
+	var start_a = wave_start(a)
+	var start_b = wave_start(b)
+	var frames = roundi(AudioServer.get_mix_rate()*.08)
+	if start_a+frames > a.size() or start_b+frames > b.size():
+		return 1.0
+	var error = 0.0
+	for i in range(frames):
+		error = maxf(error,absf(a[start_a+i]-b[start_b+i]))
+	return error
 
 func check_dense_chord() -> bool:
 	var transport = preload("res://scripts/transport.gd").new()
 	var notes = []
 	for pitch in range(30,78):
 		var note = {"pitch":pitch,"start":0.0,"end":.36,"velocity":1.0,"program":0,"channel":0}
-		transport.synth.instrument(note)
 		notes.append(note)
 	root.add_child(transport)
 	transport.change_volume(1.0)
@@ -66,19 +88,32 @@ func check_dense_chord() -> bool:
 	await create_timer(.08).timeout
 	capture.clear_buffer()
 	transport.audition(60,0,true)
-	var solo_peak = await capture_peak(capture,.5)
+	var solo_peak = audio_peak(await capture_audio(capture,.5))
 	transport.audition(60,0,false)
 	await create_timer(.20).timeout
 	capture.clear_buffer()
 	transport.replace([MIDI.layer("Chord A",notes,.5),MIDI.layer("Chord B",notes.duplicate(true),.5)])
+	var start = Time.get_ticks_usec()
 	transport.play()
-	var chord_peak = await capture_peak(capture,.65)
+	var cold_start_ms = (Time.get_ticks_usec()-start)/1000.0
+	var cold = await capture_audio(capture,.65)
+	var chord_peak = audio_peak(cold)
+	transport.pause()
+	transport.seek(0)
+	var piano_bus = AudioServer.get_bus_index(&"Piano")
+	AudioServer.set_bus_bypass_effects(piano_bus,true)
+	capture.clear_buffer()
+	transport.play()
+	var warm = await capture_audio(capture,.65)
+	AudioServer.set_bus_bypass_effects(piano_bus,false)
+	var difference = onset_difference(cold,warm)
 	AudioServer.remove_bus_effect(0,capture_index)
 	transport.queue_free()
 	await process_frame
-	print("Native mixer peaks: single key %.3f, layered 48-key chord %.3f" % [solo_peak,chord_peak])
-	return expect(solo_peak>.12 and solo_peak<.25 and chord_peak>.5 and chord_peak<.92,
-		"Dense chords should stay below clipping at maximum volume while single keys keep their level")
+	print("Native mixer: cold 48-key chord %.1f ms, peaks %.3f solo / %.3f chord, onset difference %.4f" %
+		[cold_start_ms,solo_peak,chord_peak,difference])
+	return expect(cold_start_ms < 250.0 and solo_peak>.12 and solo_peak<.25 and chord_peak>.5 and chord_peak<.92 and difference<.02,
+		"A cold chord starts together and its attack matches a warm playback with the limiter bypassed")
 
 func check_photo(app: Control) -> bool:
 	var image = Image.create(9,7,false,Image.FORMAT_RGB8)

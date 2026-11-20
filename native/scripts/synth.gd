@@ -4,7 +4,11 @@ const MIDI = preload("res://scripts/midi.gd")
 const RATE = 32000
 const ATTACK_FRAMES = 384
 const RELEASE_FRAMES = 576
+const BANK_PATH = "res://assets/sound-bank.bin"
+const BANK_INDEX_SIZE = 128*8*5
 var samples: Dictionary = {}
+var sound_bank: FileAccess
+var bank_index: PackedInt32Array
 
 static func fade(t: float) -> float:
 	var x = clampf(t,0.0,1.0)
@@ -17,50 +21,15 @@ func instrument(note: Dictionary) -> Dictionary:
 	var cache_key = note.pitch * 8 + kind
 	if samples.has(cache_key):
 		return samples[cache_key]
-	var frequency = 440.0 * pow(2.0,(note.pitch-69)/12.0)
-	var damper = .26 if kind == 4 else .16 if kind == 5 else 0.0
-	var steady = kind == 2
-	var length = int(RATE*damper) if damper > 0 else int(RATE * (2.0 if steady else 2.6))
-	var loop_begin = 0
-	var loop_end = 0
-	if steady:
-		var first = maxi(roundi(.30*RATE),roundi(15.0/frequency*RATE))
-		var periods = floori((length-first)*frequency/RATE)
-		if periods >= 1:
-			loop_begin = first
-			loop_end = mini(length,first+roundi(periods/frequency*RATE))
-			frequency = float(periods)*RATE/(loop_end-loop_begin)
-	var values = PackedFloat32Array()
-	values.resize(length)
-	var pcm = PackedByteArray()
-	pcm.resize(length*2)
-	var random = RandomNumberGenerator.new()
-	random.seed = cache_key
-	for i in range(length):
-		var time = float(i)/RATE
-		var phase = TAU*frequency*time
-		var signal_value: float
-		var envelope = fade(float(i)/ATTACK_FRAMES) if i < ATTACK_FRAMES else 1.0
-		if loop_end == 0 and i >= length-RELEASE_FRAMES:
-			envelope *= fade(float(length-1-i)/RELEASE_FRAMES)
-		match kind:
-			4:
-				signal_value = sin(TAU*(46*time+7*(1-exp(-time*17))))
-				envelope *= exp(-time*18)
-			5:
-				signal_value = random.randf_range(-1,1)*.65 + sin(phase)*.15
-				envelope *= exp(-time*24)
-			1:
-				signal_value = sin(phase)*.74+sin(phase*2.76)*.21+sin(phase*4.05)*.05
-				envelope *= .66*exp(-time*3.7)+.34*exp(-time*1.2)
-			2:
-				signal_value = sin(phase)*.72+sin(phase*2)*.2+sin(phase*3)*.08
-				envelope *= .72+.28*(1.0-fade(time/.30))
-			_:
-				signal_value = sin(phase)*.76+sin(phase*2)*.18+sin(phase*3)*.06
-				envelope *= .62*exp(-time*5.2)+.38*exp(-time*1.1)
-		values[i] = signal_value*envelope
-		pcm.encode_s16(i*2,roundi(values[i]*32767.0))
+	if not sound_bank:
+		sound_bank = FileAccess.open(BANK_PATH,FileAccess.READ)
+		bank_index = sound_bank.get_buffer(BANK_INDEX_SIZE*4).to_int32_array()
+	var entry = cache_key*5
+	var frame_count = bank_index[entry+2]
+	var loop_begin = bank_index[entry+3]
+	var loop_end = bank_index[entry+4]
+	sound_bank.seek(bank_index[entry])
+	var pcm = sound_bank.get_buffer(bank_index[entry+1]).decompress(frame_count*2,FileAccess.COMPRESSION_ZSTD)
 	var stream = AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = RATE
@@ -69,7 +38,7 @@ func instrument(note: Dictionary) -> Dictionary:
 		stream.loop_begin = loop_begin
 		stream.loop_end = loop_end
 	stream.data = pcm
-	var result = {"values":values,"stream":stream,"loop_begin":loop_begin,"loop_end":loop_end}
+	var result = {"frame_count":frame_count,"stream":stream,"loop_begin":loop_begin,"loop_end":loop_end}
 	samples[cache_key] = result
 	return result
 
@@ -84,10 +53,10 @@ func stream_from(note: Dictionary, offset: float) -> AudioStreamWAV:
 	var loops = loop_end > loop_begin
 	if loops and start >= loop_end:
 		start = loop_begin+(start-loop_begin)%(loop_end-loop_begin)
-	if not loops and start >= bank.values.size():
+	if not loops and start >= bank.frame_count:
 		return null
 	var raw = base.data
-	var data = raw.slice(start*2,(loop_end if loops else bank.values.size())*2)
+	var data = raw.slice(start*2,(loop_end if loops else bank.frame_count)*2)
 	if loops:
 		loop_begin -= start
 		loop_end -= start
@@ -138,16 +107,16 @@ func pcm(layers: Array, first: int, count: int, start: float, speed: float, volu
 			if until <= from:
 				continue
 			var bank = instrument(note)
-			var tone: PackedFloat32Array = bank.values
+			var tone: PackedByteArray = bank.stream.data
 			var amplitude = pow(note.velocity,1.65)*.31*volume
 			for i in range(from,until):
 				var offset = maxi(0,roundi((begin-note.start)*RATE/speed)+i)
 				if bank.loop_end > bank.loop_begin and offset >= bank.loop_end:
 					offset = bank.loop_begin+(offset-bank.loop_begin)%(bank.loop_end-bank.loop_begin)
-				if offset >= tone.size():
+				if offset >= bank.frame_count:
 					break
 				var release = fade(((note.end-begin)*RATE/speed-i)/RELEASE_FRAMES)
-				mixed[i] += tone[offset]*amplitude*release
+				mixed[i] += (tone.decode_s16(offset*2)/32767.0)*amplitude*release
 	var data = PackedByteArray()
 	data.resize(count*2)
 	for i in range(count):
