@@ -120,23 +120,23 @@ function gradient(context, x, y, radius, color, opacity) {
 }
 function buildGeometry() {
   const {w,h,dpr} = resize(roll);
-  const {range,effects,keyStyle,background,backgroundShade,theme} = state.style;
-  const key = [w,h,dpr,range,keyStyle,background,backgroundShade,theme,backgroundRevision,effects.ambient,effects.bands,effects.lanes].join('-');
+  const {effects,keyStyle,background,backgroundShade,theme} = state.style;
+  const [min,max] = keyboardRange(state.style);
+  const key = [w,h,dpr,min,max,keyStyle,background,backgroundShade,theme,backgroundRevision,effects.ambient,effects.bands,effects.lanes].join('-');
   if (key === stamp) return geometry;
   stamp = key;
-  const min = range === 128 ? 0 : 21;
-  const max = range === 128 ? 127 : 108;
   const padding = w < 550 ? 8 : 15;
   const impact = h - clamp(h*.173,54,102);
-  let count = 0;
-  for (let p = min; p <= max; p++) if (!blackPitch(p)) count++;
-  const width = (w-padding*2) / count;
+  const leading = blackPitch(min) ? .32 : 0;
+  let span = leading+(blackPitch(max) ? .32 : 0);
+  for (let p = min; p <= max; p++) if (!blackPitch(p)) span++;
+  const width = Math.max(1,w-padding*2) / span;
   const white = [], black = [], pitches = new Map();
   let index = 0;
   for (let p = min; p <= max; p++) {
     const dark = blackPitch(p);
     const size = width * (dark ? .64 : 1);
-    const center = padding + (index + (dark ? 0 : .5)) * width;
+    const center = padding + (leading + index + (dark ? 0 : .5)) * width;
     const x = center-size/2;
     const slot = {
       pitch:p, x, center, width:size, dark,
@@ -151,8 +151,8 @@ function buildGeometry() {
   return geometry;
 }
 
-function coverBackground(image,w,h) {
-  const scale = Math.max(w/image.naturalWidth,h/image.naturalHeight);
+function fitBackground(image,w,h) {
+  const scale = Math.min(w/image.naturalWidth,h/image.naturalHeight);
   const width = image.naturalWidth*scale;
   const height = image.naturalHeight*scale;
   bgCtx.drawImage(image,(w-width)/2,(h-height)/2,width,height);
@@ -170,22 +170,17 @@ function paintBackground() {
   const automatic = setting === 'theme' || (setting === 'custom' && !custom);
   const name = automatic ? activeTheme().background : setting;
   const theme = stageBackgrounds[name];
+  const imageHeight = keyStyle === 'glass' ? h : impact;
   bgCtx.fillStyle = '#000000';
   bgCtx.fillRect(0,0,w,h);
   if (custom) {
-    coverBackground(custom.image,w,h);
+    fitBackground(custom.image,w,imageHeight);
     bgCtx.fillStyle = rgba('#000000',backgroundShade/100);
     bgCtx.fillRect(0,0,w,h);
   } else if (name === 'soviet' && sovietArtwork.complete && sovietArtwork.naturalWidth) {
-    const height = keyStyle === 'glass' ? h : impact;
-    bgCtx.save();
-    bgCtx.beginPath();
-    bgCtx.rect(0,0,w,height);
-    bgCtx.clip();
-    coverBackground(sovietArtwork,w,height);
+    fitBackground(sovietArtwork,w,imageHeight);
     bgCtx.fillStyle = '#14080f38';
-    bgCtx.fillRect(0,0,w,height);
-    bgCtx.restore();
+    bgCtx.fillRect(0,0,w,imageHeight);
   } else if (theme) {
     const fill = bgCtx.createLinearGradient(0,0,0,h);
     fill.addColorStop(0,theme.base[0]);

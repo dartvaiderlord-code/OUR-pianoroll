@@ -52,7 +52,7 @@
           <div class="stage-title"><svg class="iconsvg"><use href="#i-piano"/></svg><h2 id="stage-title" data-i18n="pianoRoll">Пиано-ролл</h2></div>
           <div class="stage-tools">
             <div class="legend" id="legend" aria-label="Цвета MIDI-файлов" data-i18n-label="layerColors"></div>
-            <span class="zoom" id="keyCount" data-i18n="standardKeys">88 клавиш</span>
+            <span class="zoom" id="keyCount">88 клавиш</span>
             <button class="icon-button record-button" id="record" type="button" title="Записать видео со звуком" data-i18n-title="recordVideo" aria-label="Записать видео со звуком" data-i18n-label="recordVideo" aria-pressed="false"><svg><use href="#i-video"/></svg><span id="recordLabel" data-i18n="video">Видео</span></button>
             <button class="icon-button" id="fullscreen" type="button" title="На весь экран" data-i18n-title="fullscreen" aria-label="На весь экран" data-i18n-label="fullscreen"><svg><use href="#i-expand"/></svg></button>
           </div>
@@ -131,7 +131,6 @@
   </select></label>
   <label class="effect-row"><span data-i18n="noteRoundness">Скругление нот</span><span class="effect-range"><input id="noteRoundness" type="range" min="0" max="100" value="50" aria-label="Скругление нот" data-i18n-label="noteRoundness"><output id="roundnessValue" for="noteRoundness">50%</output></span></label>
   <label class="effect-row"><span data-i18n="layerKeyColors">Цвета слоёв на клавишах</span><input class="switch" type="checkbox" data-effect="layerKeys"></label>
-  <label class="effect-row"><span data-i18n="keyRange">Диапазон клавиш</span><select id="range"><option value="88" data-i18n="standardKeys">88 клавиш</option><option value="128" data-i18n="fullKeys">128 MIDI-нот</option></select></label>
   <label class="effect-row"><span data-i18n="noteHorizon">Горизонт нот</span><select id="horizon"><option value="2.5" data-i18n="shortHorizon">2,5 с</option><option value="4.5" selected data-i18n="normalHorizon">4,5 с</option><option value="7" data-i18n="longHorizon">7 с</option></select></label>
   <button class="reset" id="reset" type="button" data-i18n="resetAppearance">Сбросить оформление</button>
 </dialog>
@@ -150,6 +149,12 @@
     <option value="piano" data-i18n="pianoKeys">Классическое пианино</option><option value="glass" data-i18n="glassKeys">Прозрачные</option><option value="neon" data-i18n="neonKeys">Неоновый контур</option><option value="matte" data-i18n="matteKeys">Матовый графит</option>
     <option value="square" data-i18n="squareKeys">Квадратные силуэты</option><option value="gold" data-i18n="goldKeys">Золотые</option><option value="spectrum" data-i18n="rainbowKeys">Разноцветные</option><option value="ice" data-i18n="iceKeys">Лёд</option><option value="inverted" data-i18n="invertedKeys">Инверсия</option>
   </select></label>
+  <label class="effect-row"><span data-i18n="keyRange">Диапазон клавиш</span><select id="range"><option value="88" data-i18n="standardKeys">88 клавиш</option><option value="128" data-i18n="fullKeys">128 MIDI-нот</option><option value="0" data-i18n="customKeyRange">Свой диапазон</option></select></label>
+  <div id="customRangeFields" hidden>
+    <label class="effect-row"><span data-i18n="firstKey">Первая нота</span><select id="firstKey"></select></label>
+    <label class="effect-row"><span data-i18n="lastKey">Последняя нота</span><select id="lastKey"></select></label>
+    <label class="effect-row"><span data-i18n="keyQuantity">Количество клавиш</span><input id="visibleKeys" type="number" min="1" max="128" step="1"></label>
+  </div>
   <fieldset class="background-field">
     <legend data-i18n="rollBackground">Фон пиано-ролла</legend>
     <div class="background-options" id="backgroundOptions">

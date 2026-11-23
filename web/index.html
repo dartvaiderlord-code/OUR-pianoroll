@@ -188,6 +188,7 @@ kbd{font:11px var(--mono);background:#171221;border:1px solid #352744;border-rad
 .recording-result{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 13px;border-top:1px solid var(--edge-soft);font-size:13px;color:#d2c4e0}
 .recording-result .button{min-height:31px;text-decoration:none;color:#e7cff8;font-size:13px}
 .appearance-dialog .effect-row select{max-width:60%}
+#visibleKeys{width:5em;padding:3px 7px;border:1px solid var(--edge);border-radius:5px;color:inherit;background:transparent;font:inherit}
 @media(max-width:600px){.stage-tools .legend{max-width:120px}.stage-tools .zoom{display:none}}
 @media(max-width:470px){.record-button{padding:0 3px}.record-button span{display:none}.stage-tools .legend{max-width:90px}}
 
@@ -335,7 +336,7 @@ kbd{font:11px var(--mono);background:#171221;border:1px solid #352744;border-rad
           <div class="stage-title"><svg class="iconsvg"><use href="#i-piano"/></svg><h2 id="stage-title" data-i18n="pianoRoll">Пиано-ролл</h2></div>
           <div class="stage-tools">
             <div class="legend" id="legend" aria-label="Цвета MIDI-файлов" data-i18n-label="layerColors"></div>
-            <span class="zoom" id="keyCount" data-i18n="standardKeys">88 клавиш</span>
+            <span class="zoom" id="keyCount">88 клавиш</span>
             <button class="icon-button record-button" id="record" type="button" title="Записать видео со звуком" data-i18n-title="recordVideo" aria-label="Записать видео со звуком" data-i18n-label="recordVideo" aria-pressed="false"><svg><use href="#i-video"/></svg><span id="recordLabel" data-i18n="video">Видео</span></button>
             <button class="icon-button" id="fullscreen" type="button" title="На весь экран" data-i18n-title="fullscreen" aria-label="На весь экран" data-i18n-label="fullscreen"><svg><use href="#i-expand"/></svg></button>
           </div>
@@ -414,7 +415,6 @@ kbd{font:11px var(--mono);background:#171221;border:1px solid #352744;border-rad
   </select></label>
   <label class="effect-row"><span data-i18n="noteRoundness">Скругление нот</span><span class="effect-range"><input id="noteRoundness" type="range" min="0" max="100" value="50" aria-label="Скругление нот" data-i18n-label="noteRoundness"><output id="roundnessValue" for="noteRoundness">50%</output></span></label>
   <label class="effect-row"><span data-i18n="layerKeyColors">Цвета слоёв на клавишах</span><input class="switch" type="checkbox" data-effect="layerKeys"></label>
-  <label class="effect-row"><span data-i18n="keyRange">Диапазон клавиш</span><select id="range"><option value="88" data-i18n="standardKeys">88 клавиш</option><option value="128" data-i18n="fullKeys">128 MIDI-нот</option></select></label>
   <label class="effect-row"><span data-i18n="noteHorizon">Горизонт нот</span><select id="horizon"><option value="2.5" data-i18n="shortHorizon">2,5 с</option><option value="4.5" selected data-i18n="normalHorizon">4,5 с</option><option value="7" data-i18n="longHorizon">7 с</option></select></label>
   <button class="reset" id="reset" type="button" data-i18n="resetAppearance">Сбросить оформление</button>
 </dialog>
@@ -433,6 +433,12 @@ kbd{font:11px var(--mono);background:#171221;border:1px solid #352744;border-rad
     <option value="piano" data-i18n="pianoKeys">Классическое пианино</option><option value="glass" data-i18n="glassKeys">Прозрачные</option><option value="neon" data-i18n="neonKeys">Неоновый контур</option><option value="matte" data-i18n="matteKeys">Матовый графит</option>
     <option value="square" data-i18n="squareKeys">Квадратные силуэты</option><option value="gold" data-i18n="goldKeys">Золотые</option><option value="spectrum" data-i18n="rainbowKeys">Разноцветные</option><option value="ice" data-i18n="iceKeys">Лёд</option><option value="inverted" data-i18n="invertedKeys">Инверсия</option>
   </select></label>
+  <label class="effect-row"><span data-i18n="keyRange">Диапазон клавиш</span><select id="range"><option value="88" data-i18n="standardKeys">88 клавиш</option><option value="128" data-i18n="fullKeys">128 MIDI-нот</option><option value="0" data-i18n="customKeyRange">Свой диапазон</option></select></label>
+  <div id="customRangeFields" hidden>
+    <label class="effect-row"><span data-i18n="firstKey">Первая нота</span><select id="firstKey"></select></label>
+    <label class="effect-row"><span data-i18n="lastKey">Последняя нота</span><select id="lastKey"></select></label>
+    <label class="effect-row"><span data-i18n="keyQuantity">Количество клавиш</span><input id="visibleKeys" type="number" min="1" max="128" step="1"></label>
+  </div>
   <fieldset class="background-field">
     <legend data-i18n="rollBackground">Фон пиано-ролла</legend>
     <div class="background-options" id="backgroundOptions">
@@ -533,6 +539,11 @@ const translations = {
   noteRoundness:['Скругление нот','Note corner radius'],
   layerKeyColors:['Цвета слоёв на клавишах','Layer colors on keys'],
   keyRange:['Диапазон клавиш','Keyboard range'],
+  customKeyRange:['Свой диапазон','Custom range'],
+  keyQuantity:['Количество клавиш','Number of keys'],
+  firstKey:['Первая нота','First note'],
+  lastKey:['Последняя нота','Last note'],
+  customKeyCount:['Клавиш {count}','Keys {count}'],
   noteHorizon:['Горизонт нот','Note lookahead'],
   shortHorizon:['2,5 с','2.5 s'],
   normalHorizon:['4,5 с','4.5 s'],
@@ -843,10 +854,15 @@ const defaultEffects = {
 };
 const defaultStyle = {
   theme:'soviet', noteColor:null, keyColor:null, keyStyle:'theme', background:'theme', backgroundShade:28,
-  range:88, horizon:4.5, noteRoundness:50, noteFill:'translucent', effects:{...defaultEffects}
+  range:88, keyFrom:21, keyTo:108, horizon:4.5, noteRoundness:50, noteFill:'translucent', effects:{...defaultEffects}
 };
 const validColor = color => typeof color === 'string' && /^#[\da-f]{6}$/i.test(color);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+function keyboardRange(style) {
+  if (style.range === 0) return [style.keyFrom,style.keyTo];
+  return style.range === 128 ? [0,127] : [21,108];
+}
 
 function readStyle() {
   const result = { ...defaultStyle, effects:{...defaultEffects} };
@@ -863,7 +879,10 @@ function readStyle() {
     if (Number.isFinite(saved.backgroundShade)) result.backgroundShade = clamp(saved.backgroundShade,0,85);
     if (Number.isFinite(saved.noteRoundness)) result.noteRoundness = clamp(Math.round(saved.noteRoundness),0,100);
     if (noteFills.includes(saved.noteFill)) result.noteFill = saved.noteFill;
-    if ([88,128].includes(saved.range)) result.range = saved.range;
+    if ([0,88,128].includes(saved.range)) result.range = saved.range;
+    if (Number.isInteger(saved.keyFrom)) result.keyFrom = clamp(saved.keyFrom,0,127);
+    if (Number.isInteger(saved.keyTo)) result.keyTo = saved.keyTo;
+    result.keyTo = clamp(result.keyTo,result.keyFrom,127);
     if ([2.5,4.5,7].includes(saved.horizon)) result.horizon = saved.horizon;
     if (typeof saved.effects?.grid === 'boolean') {
       result.effects.bands = result.effects.lanes = saved.effects.grid;
@@ -1330,23 +1349,23 @@ function gradient(context, x, y, radius, color, opacity) {
 }
 function buildGeometry() {
   const {w,h,dpr} = resize(roll);
-  const {range,effects,keyStyle,background,backgroundShade,theme} = state.style;
-  const key = [w,h,dpr,range,keyStyle,background,backgroundShade,theme,backgroundRevision,effects.ambient,effects.bands,effects.lanes].join('-');
+  const {effects,keyStyle,background,backgroundShade,theme} = state.style;
+  const [min,max] = keyboardRange(state.style);
+  const key = [w,h,dpr,min,max,keyStyle,background,backgroundShade,theme,backgroundRevision,effects.ambient,effects.bands,effects.lanes].join('-');
   if (key === stamp) return geometry;
   stamp = key;
-  const min = range === 128 ? 0 : 21;
-  const max = range === 128 ? 127 : 108;
   const padding = w < 550 ? 8 : 15;
   const impact = h - clamp(h*.173,54,102);
-  let count = 0;
-  for (let p = min; p <= max; p++) if (!blackPitch(p)) count++;
-  const width = (w-padding*2) / count;
+  const leading = blackPitch(min) ? .32 : 0;
+  let span = leading+(blackPitch(max) ? .32 : 0);
+  for (let p = min; p <= max; p++) if (!blackPitch(p)) span++;
+  const width = Math.max(1,w-padding*2) / span;
   const white = [], black = [], pitches = new Map();
   let index = 0;
   for (let p = min; p <= max; p++) {
     const dark = blackPitch(p);
     const size = width * (dark ? .64 : 1);
-    const center = padding + (index + (dark ? 0 : .5)) * width;
+    const center = padding + (leading + index + (dark ? 0 : .5)) * width;
     const x = center-size/2;
     const slot = {
       pitch:p, x, center, width:size, dark,
@@ -1361,8 +1380,8 @@ function buildGeometry() {
   return geometry;
 }
 
-function coverBackground(image,w,h) {
-  const scale = Math.max(w/image.naturalWidth,h/image.naturalHeight);
+function fitBackground(image,w,h) {
+  const scale = Math.min(w/image.naturalWidth,h/image.naturalHeight);
   const width = image.naturalWidth*scale;
   const height = image.naturalHeight*scale;
   bgCtx.drawImage(image,(w-width)/2,(h-height)/2,width,height);
@@ -1380,22 +1399,17 @@ function paintBackground() {
   const automatic = setting === 'theme' || (setting === 'custom' && !custom);
   const name = automatic ? activeTheme().background : setting;
   const theme = stageBackgrounds[name];
+  const imageHeight = keyStyle === 'glass' ? h : impact;
   bgCtx.fillStyle = '#000000';
   bgCtx.fillRect(0,0,w,h);
   if (custom) {
-    coverBackground(custom.image,w,h);
+    fitBackground(custom.image,w,imageHeight);
     bgCtx.fillStyle = rgba('#000000',backgroundShade/100);
     bgCtx.fillRect(0,0,w,h);
   } else if (name === 'soviet' && sovietArtwork.complete && sovietArtwork.naturalWidth) {
-    const height = keyStyle === 'glass' ? h : impact;
-    bgCtx.save();
-    bgCtx.beginPath();
-    bgCtx.rect(0,0,w,height);
-    bgCtx.clip();
-    coverBackground(sovietArtwork,w,height);
+    fitBackground(sovietArtwork,w,imageHeight);
     bgCtx.fillStyle = '#14080f38';
-    bgCtx.fillRect(0,0,w,height);
-    bgCtx.restore();
+    bgCtx.fillRect(0,0,w,imageHeight);
   } else if (theme) {
     const fill = bgCtx.createLinearGradient(0,0,0,h);
     fill.addColorStop(0,theme.base[0]);
@@ -2175,13 +2189,29 @@ async function addFiles(files) {
 function fillSettings() {
   $('noteColor').value = primaryNoteColor();
   $('keyColor').value = activeKeyColor();
-  $('range').value = state.style.range;
+  fillKeyboardRange();
   $('horizon').value = state.style.horizon;
   $('noteFill').value = state.style.noteFill;
   showRoundness();
-  $('keyCount').textContent = t(state.style.range === 88 ? 'standardKeys' : 'fullKeys');
   for (const checkbox of document.querySelectorAll('[data-effect]')) checkbox.checked = state.style.effects[checkbox.dataset.effect];
   fillAppearance();
+}
+function fillKeyboardRange() {
+  const {range,keyFrom,keyTo} = state.style;
+  const count = keyTo-keyFrom+1;
+  $('range').value = range;
+  $('customRangeFields').hidden = range !== 0;
+  $('firstKey').value = keyFrom;
+  $('lastKey').value = keyTo;
+  $('visibleKeys').value = count;
+  $('keyCount').textContent = t(range === 0 ? 'customKeyCount' : range === 128 ? 'fullKeys' : 'standardKeys',{count});
+}
+
+function applyKeyboardRange() {
+  fillKeyboardRange();
+  for (const pointer of previews.keys()) releaseKey(pointer);
+  clearEffects();
+  saveStyle();
 }
 function applyLanguage() {
   $('language').value = language;
@@ -2426,7 +2456,34 @@ $('noteColor').addEventListener('input',event => {
   saveStyle();
 });
 $('keyColor').addEventListener('input',event => { state.style.keyColor = event.target.value; saveStyle(); });
-$('range').addEventListener('change',event => { state.style.range = +event.target.value; fillSettings(); saveStyle(); });
+const pitchNames = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+for (let pitch = 0; pitch < 128; pitch++) {
+  const name = pitchNames[pitch%12]+(Math.floor(pitch/12)-1)+' · '+pitch;
+  $('firstKey').add(new Option(name,pitch));
+  $('lastKey').add(new Option(name,pitch));
+}
+$('range').addEventListener('change',event => {
+  state.style.range = Number(event.target.value);
+  applyKeyboardRange();
+});
+$('firstKey').addEventListener('change',event => {
+  state.style.keyFrom = Number(event.target.value);
+  state.style.keyTo = Math.max(state.style.keyTo,state.style.keyFrom);
+  applyKeyboardRange();
+});
+$('lastKey').addEventListener('change',event => {
+  state.style.keyTo = Number(event.target.value);
+  state.style.keyFrom = Math.min(state.style.keyFrom,state.style.keyTo);
+  applyKeyboardRange();
+});
+$('visibleKeys').addEventListener('change',event => {
+  const count = clamp(Math.round(event.target.valueAsNumber),1,128);
+  if (Number.isFinite(count)) {
+    state.style.keyFrom = Math.min(state.style.keyFrom,128-count);
+    state.style.keyTo = state.style.keyFrom+count-1;
+  }
+  applyKeyboardRange();
+});
 $('horizon').addEventListener('change',event => { state.style.horizon = +event.target.value; saveStyle(); });
 $('noteFill').addEventListener('change',event => {
   if (!noteFills.includes(event.target.value)) return;

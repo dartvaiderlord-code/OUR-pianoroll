@@ -50,6 +50,10 @@ var notices: Array = []
 var picker: FileDialog
 var effects_dialog: AcceptDialog
 var appearance_dialog: AcceptDialog
+var key_range_fields: VBoxContainer
+var first_key: OptionButton
+var last_key: OptionButton
+var visible_key_count: SpinBox
 var export_dialog: ConfirmationDialog
 var export_progress: ConfirmationDialog
 var export_bar: ProgressBar
@@ -129,6 +133,10 @@ func read_settings() -> void:
 	if not custom_background and settings.background == "custom":
 		settings.background = "theme"
 	settings.hitSize = clampf(settings.hitSize,Design.MIN_HIT_SIZE,Design.MAX_HIT_SIZE)
+	if settings.range not in [0,88,128]:
+		settings.range = 88
+	settings.keyFrom = clampi(settings.keyFrom,0,127)
+	settings.keyTo = clampi(settings.keyTo,settings.keyFrom,127)
 
 func save_settings() -> void:
 	var config = ConfigFile.new()
@@ -288,7 +296,7 @@ func rebuild() -> void:
 	legend = spacing(stage_top,true,5)
 	if compact:
 		legend.hide()
-	key_count = title_at(stage_top,label("standardKeys" if settings.range==88 else "fullKeys"),12,true)
+	key_count = title_at(stage_top,keyboard_count_label(),12,true)
 	record_button = button(stage_top,label("stop" if live_capture.active else "video"),show_export)
 	record_button.tooltip_text = label("stopRecording" if live_capture.active else "exportVideo")
 	full_button = button(stage_top,"⛶",toggle_fullscreen)
@@ -494,13 +502,34 @@ func build_dialogs() -> void:
 		check(effects,checks[key],key)
 	option(labeled(effects,"noteFill"),localized_choices(Design.FILLS),settings.noteFill,func(value): set_option("noteFill",value))
 	number(labeled(effects,"noteRoundness"),settings.noteRoundness,0,100,1,func(value): set_option("noteRoundness",value)).suffix = "%"
-	option(labeled(effects,"keyRange"),{88:label("standardKeys"),128:label("fullKeys")},settings.range,func(value): set_option("range",value))
 	option(labeled(effects,"noteHorizon"),{2.5:label("shortHorizon"),4.5:label("normalHorizon"),7.0:label("longHorizon")},settings.horizon,func(value): set_option("horizon",value))
 	button(effects,label("resetAppearance"),reset_appearance)
 
 	appearance_dialog = dialog("keysBackground")
 	var appearance = spacing(appearance_dialog,false,8)
 	option(labeled(appearance,"keyStyle"),localized_choices(Design.KEY_STYLES),settings.keyStyle,func(value): set_option("keyStyle",value))
+	option(labeled(appearance,"keyRange"),{88:label("standardKeys"),128:label("fullKeys"),0:label("customKeyRange")},settings.range,
+		func(value):
+			settings.range = value
+			apply_keyboard_range())
+	key_range_fields = spacing(appearance,false,5)
+	var pitches = {}
+	for pitch in range(128):
+		pitches[pitch] = Design.pitch_label(pitch)
+	first_key = option(labeled(key_range_fields,"firstKey"),pitches,settings.keyFrom,func(value):
+		settings.keyFrom = value
+		settings.keyTo = maxi(settings.keyTo,value)
+		apply_keyboard_range())
+	last_key = option(labeled(key_range_fields,"lastKey"),pitches,settings.keyTo,func(value):
+		settings.keyTo = value
+		settings.keyFrom = mini(settings.keyFrom,value)
+		apply_keyboard_range())
+	visible_key_count = number(labeled(key_range_fields,"keyQuantity"),settings.keyTo-settings.keyFrom+1,1,128,1,func(value):
+		var count = int(value)
+		settings.keyFrom = mini(settings.keyFrom,128-count)
+		settings.keyTo = settings.keyFrom+count-1
+		apply_keyboard_range())
+	key_range_fields.visible = settings.range == 0
 	var choices = localized_choices(Design.BACKGROUNDS)
 	if not custom_background:
 		choices.erase("custom")
@@ -557,6 +586,21 @@ func set_option(key: String, value, full := false) -> void:
 		if key=="noteColor":
 			refresh_track_content()
 
+func keyboard_count_label() -> String:
+	if settings.range != 0:
+		return label("fullKeys" if settings.range == 128 else "standardKeys")
+	var pitches = Design.keyboard_range(settings)
+	return label("customKeyCount",{"count":pitches.y-pitches.x+1})
+
+func apply_keyboard_range() -> void:
+	key_range_fields.visible = settings.range == 0
+	first_key.select(settings.keyFrom)
+	last_key.select(settings.keyTo)
+	visible_key_count.set_value_no_signal(settings.keyTo-settings.keyFrom+1)
+	roll.release_touches()
+	save_settings()
+	apply_roll()
+
 func reset_appearance() -> void:
 	var saved_language = settings.language
 	var saved_theme = settings.theme
@@ -569,7 +613,7 @@ func reset_appearance() -> void:
 func apply_roll(refresh_wave := false) -> void:
 	if roll and is_instance_valid(roll):
 		roll.configure(settings,active,custom_background)
-		key_count.text = label("standardKeys" if settings.range==88 else "fullKeys")
+		key_count.text = keyboard_count_label()
 		if refresh_wave:
 			wave.configure(active,music.duration,settings)
 		if live_capture.active:

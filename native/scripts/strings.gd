@@ -309,6 +309,26 @@ const TEXT = {
     "Диапазон клавиш",
     "Keyboard range"
   ],
+  "customKeyRange": [
+    "Свой диапазон",
+    "Custom range"
+  ],
+  "keyQuantity": [
+    "Количество клавиш",
+    "Number of keys"
+  ],
+  "firstKey": [
+    "Первая нота",
+    "First note"
+  ],
+  "lastKey": [
+    "Последняя нота",
+    "Last note"
+  ],
+  "customKeyCount": [
+    "Клавиш {count}",
+    "Keys {count}"
+  ],
   "noteHorizon": [
     "Горизонт нот",
     "Note lookahead"

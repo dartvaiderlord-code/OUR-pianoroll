@@ -224,13 +224,29 @@ async function addFiles(files) {
 function fillSettings() {
   $('noteColor').value = primaryNoteColor();
   $('keyColor').value = activeKeyColor();
-  $('range').value = state.style.range;
+  fillKeyboardRange();
   $('horizon').value = state.style.horizon;
   $('noteFill').value = state.style.noteFill;
   showRoundness();
-  $('keyCount').textContent = t(state.style.range === 88 ? 'standardKeys' : 'fullKeys');
   for (const checkbox of document.querySelectorAll('[data-effect]')) checkbox.checked = state.style.effects[checkbox.dataset.effect];
   fillAppearance();
+}
+function fillKeyboardRange() {
+  const {range,keyFrom,keyTo} = state.style;
+  const count = keyTo-keyFrom+1;
+  $('range').value = range;
+  $('customRangeFields').hidden = range !== 0;
+  $('firstKey').value = keyFrom;
+  $('lastKey').value = keyTo;
+  $('visibleKeys').value = count;
+  $('keyCount').textContent = t(range === 0 ? 'customKeyCount' : range === 128 ? 'fullKeys' : 'standardKeys',{count});
+}
+
+function applyKeyboardRange() {
+  fillKeyboardRange();
+  for (const pointer of previews.keys()) releaseKey(pointer);
+  clearEffects();
+  saveStyle();
 }
 function applyLanguage() {
   $('language').value = language;
@@ -475,7 +491,34 @@ $('noteColor').addEventListener('input',event => {
   saveStyle();
 });
 $('keyColor').addEventListener('input',event => { state.style.keyColor = event.target.value; saveStyle(); });
-$('range').addEventListener('change',event => { state.style.range = +event.target.value; fillSettings(); saveStyle(); });
+const pitchNames = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+for (let pitch = 0; pitch < 128; pitch++) {
+  const name = pitchNames[pitch%12]+(Math.floor(pitch/12)-1)+' · '+pitch;
+  $('firstKey').add(new Option(name,pitch));
+  $('lastKey').add(new Option(name,pitch));
+}
+$('range').addEventListener('change',event => {
+  state.style.range = Number(event.target.value);
+  applyKeyboardRange();
+});
+$('firstKey').addEventListener('change',event => {
+  state.style.keyFrom = Number(event.target.value);
+  state.style.keyTo = Math.max(state.style.keyTo,state.style.keyFrom);
+  applyKeyboardRange();
+});
+$('lastKey').addEventListener('change',event => {
+  state.style.keyTo = Number(event.target.value);
+  state.style.keyFrom = Math.min(state.style.keyFrom,state.style.keyTo);
+  applyKeyboardRange();
+});
+$('visibleKeys').addEventListener('change',event => {
+  const count = clamp(Math.round(event.target.valueAsNumber),1,128);
+  if (Number.isFinite(count)) {
+    state.style.keyFrom = Math.min(state.style.keyFrom,128-count);
+    state.style.keyTo = state.style.keyFrom+count-1;
+  }
+  applyKeyboardRange();
+});
 $('horizon').addEventListener('change',event => { state.style.horizon = +event.target.value; saveStyle(); });
 $('noteFill').addEventListener('change',event => {
   if (!noteFills.includes(event.target.value)) return;

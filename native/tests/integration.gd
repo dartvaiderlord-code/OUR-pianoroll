@@ -5,6 +5,7 @@ const MIDI = preload("res://scripts/midi.gd")
 const Synth = preload("res://scripts/synth.gd")
 const Text = preload("res://scripts/strings.gd")
 const Design = preload("res://scripts/design.gd")
+const Roll = preload("res://scripts/roll.gd")
 
 func _initialize() -> void:
 	call_deferred("run")
@@ -133,6 +134,67 @@ func check_photo(app: Control) -> bool:
 	app.set_option("background","theme",true)
 	return true
 
+func check_key_range(app: Control) -> bool:
+	app.roll.build_keys()
+	var width: float = app.roll.keyboard[60].size.x
+	app.settings.range = 0
+	app.first_key.item_selected.emit(60)
+	app.visible_key_count.value = 8
+	app.roll.build_keys()
+	var config = ConfigFile.new()
+	if not expect(app.roll.keyboard.size()==8 and app.roll.keyboard.has(67) and not app.roll.keyboard.has(68) and
+			app.roll.keyboard[60].size.x>width and app.last_key.selected==67 and config.load(app.SETTINGS_FILE)==OK and
+			config.get_value("style","keyFrom")==60 and config.get_value("style","keyTo")==67,
+			"Eight keys from C4 to G4 widen the lanes and persist both endpoints"):
+		return false
+	app.first_key.item_selected.emit(61)
+	app.last_key.item_selected.emit(61)
+	app.roll.build_keys()
+	var sharp: Rect2 = app.roll.keyboard[61]
+	if not expect(app.roll.keyboard.size()==1 and sharp.size.x>0 and sharp.position.x>=0 and
+			sharp.end.x<=app.roll.size.x and app.visible_key_count.value==1,
+			"A single black key stays inside the roll and the count updates"):
+		return false
+	app.settings.range = 88
+	app.apply_keyboard_range()
+	return true
+
+func check_uncropped_background() -> bool:
+	var viewport = SubViewport.new()
+	viewport.size = Vector2i(320,240)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(viewport)
+	var canvas = Roll.new()
+	canvas.size = Vector2(320,240)
+	viewport.add_child(canvas)
+	var photo = Image.create(40,80,false,Image.FORMAT_RGB8)
+	photo.fill(Color.GREEN)
+	photo.fill_rect(Rect2i(0,0,40,8),Color.RED)
+	photo.fill_rect(Rect2i(0,72,40,8),Color.BLUE)
+	var texture = ImageTexture.create_from_image(photo)
+	var appearance = Design.defaults()
+	appearance.background = "custom"
+	appearance.backgroundShade = 0.0
+	appearance.lanes = false
+	appearance.bands = false
+	appearance.strikeLine = false
+	canvas.configure(appearance,[],texture)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var initial = viewport.get_texture().get_image()
+	appearance.range = 0
+	appearance.keyFrom = 61
+	appearance.keyTo = 68
+	canvas.configure(appearance,[],texture)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var narrowed = viewport.get_texture().get_image()
+	var photo_area = Rect2i(0,0,320,int(canvas.impact))
+	viewport.queue_free()
+	return expect(initial.get_pixel(160,5).r>.9 and initial.get_pixel(160,photo_area.size.y-5).b>.9 and
+			initial.get_region(photo_area).get_data()==narrowed.get_region(photo_area).get_data(),
+			"The whole photo remains visible and is positioned identically across keyboard ranges")
+
 func check_scroll(app: Control) -> bool:
 	root.content_scale_size = Vector2i(440,760)
 	root.size = Vector2i(440,760)
@@ -210,6 +272,8 @@ func run() -> void:
 			app.roll.settings.hitSize==250.0,"Effect-size slider updates the roll and persists"):
 		return
 	app.hit_size_slider.value = 100
+	if not check_key_range(app):
+		return
 	if not check_photo(app):
 		return
 	if not OS.get_cmdline_user_args().has("--video"):
@@ -219,6 +283,8 @@ func run() -> void:
 		return
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("user://native-interface.png")
+	if not await check_uncropped_background():
+		return
 	if not await check_scroll(app):
 		return
 	print("Custom photo loading and touch scrolling checks passed.")

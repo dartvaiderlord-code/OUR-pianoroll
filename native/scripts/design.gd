@@ -1,7 +1,7 @@
 extends RefCounted
 
 const MIDI = preload("res://scripts/midi.gd")
-const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys","hitStyle","hitSize"]
+const SETTINGS_KEYS = ["theme","language","noteColor","keyColor","keyStyle","background","backgroundShade","range","keyFrom","keyTo","horizon","noteRoundness","noteFill","ambient","bands","lanes","strikeLine","glow","keys","particles","beams","ripples","layerKeys","hitStyle","hitSize"]
 const MIN_HIT_SIZE = 25.0
 const MAX_HIT_SIZE = 300.0
 const BACKGROUNDS = {"theme":"matchTheme","aurora":"aurora","black":"black","orbit":"orbit","ocean":"ocean","sunset":"sunset","custom":"customBackground"}
@@ -16,10 +16,24 @@ const HIT_STYLES = {
 static func defaults() -> Dictionary:
 	return {
 		"theme":"soviet","language":"ru","noteColor":"","keyColor":"","keyStyle":"theme","background":"theme","backgroundShade":28.0,
-		"range":88,"horizon":4.5,"noteRoundness":50.0,"noteFill":"translucent",
+		"range":88,"keyFrom":21,"keyTo":108,"horizon":4.5,"noteRoundness":50.0,"noteFill":"translucent",
 		"ambient":true,"bands":true,"lanes":true,"strikeLine":true,"glow":true,"keys":true,
 		"particles":true,"beams":true,"ripples":true,"layerKeys":false,"hitStyle":"classic","hitSize":100.0
 	}
+
+static func keyboard_range(settings: Dictionary) -> Vector2i:
+	match settings.range:
+		0:
+			var first = clampi(settings.keyFrom,0,127)
+			return Vector2i(first,clampi(settings.keyTo,first,127))
+		128:
+			return Vector2i(0,127)
+		_:
+			return Vector2i(21,108)
+
+static func pitch_label(pitch: int) -> String:
+	var names = ["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"]
+	return "%s%d · %d" % [names[pitch%12],pitch/12-1,pitch]
 
 static func theme_colors(settings: Dictionary) -> Dictionary:
 	if settings.theme == "classic":

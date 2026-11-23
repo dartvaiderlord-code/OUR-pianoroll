@@ -201,10 +201,15 @@ const defaultEffects = {
 };
 const defaultStyle = {
   theme:'soviet', noteColor:null, keyColor:null, keyStyle:'theme', background:'theme', backgroundShade:28,
-  range:88, horizon:4.5, noteRoundness:50, noteFill:'translucent', effects:{...defaultEffects}
+  range:88, keyFrom:21, keyTo:108, horizon:4.5, noteRoundness:50, noteFill:'translucent', effects:{...defaultEffects}
 };
 const validColor = color => typeof color === 'string' && /^#[\da-f]{6}$/i.test(color);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+function keyboardRange(style) {
+  if (style.range === 0) return [style.keyFrom,style.keyTo];
+  return style.range === 128 ? [0,127] : [21,108];
+}
 
 function readStyle() {
   const result = { ...defaultStyle, effects:{...defaultEffects} };
@@ -221,7 +226,10 @@ function readStyle() {
     if (Number.isFinite(saved.backgroundShade)) result.backgroundShade = clamp(saved.backgroundShade,0,85);
     if (Number.isFinite(saved.noteRoundness)) result.noteRoundness = clamp(Math.round(saved.noteRoundness),0,100);
     if (noteFills.includes(saved.noteFill)) result.noteFill = saved.noteFill;
-    if ([88,128].includes(saved.range)) result.range = saved.range;
+    if ([0,88,128].includes(saved.range)) result.range = saved.range;
+    if (Number.isInteger(saved.keyFrom)) result.keyFrom = clamp(saved.keyFrom,0,127);
+    if (Number.isInteger(saved.keyTo)) result.keyTo = saved.keyTo;
+    result.keyTo = clamp(result.keyTo,result.keyFrom,127);
     if ([2.5,4.5,7].includes(saved.horizon)) result.horizon = saved.horizon;
     if (typeof saved.effects?.grid === 'boolean') {
       result.effects.bands = result.effects.lanes = saved.effects.grid;

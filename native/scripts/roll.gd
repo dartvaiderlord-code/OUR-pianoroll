@@ -37,7 +37,7 @@ var effect_time = 0.0
 var impact = 0.0
 var key_width = 0.0
 var cached_size = Vector2.ZERO
-var cached_range = 0
+var cached_range = Vector2i(-1,-1)
 var note_boxes: Dictionary = {}
 var palette: Dictionary = {}
 var glow_texture: GradientTexture2D
@@ -88,27 +88,27 @@ func present(at: float, clock := -1.0) -> void:
 		queue_redraw()
 
 func build_keys() -> void:
-	if cached_size == size and cached_range == int(settings.range):
+	var pitches = Design.keyboard_range(settings)
+	if cached_size == size and cached_range == pitches:
 		return
 	cached_size = size
-	cached_range = int(settings.range)
+	cached_range = pitches
 	impact = size.y - clampf(size.y*.17,48.0, size.y*.28 if size.y >= 172 else 48.0)
 	var margin = 10.0 if size.x < 650 else 14.0
-	var low = 0 if cached_range == 128 else 21
-	var high = 127 if cached_range == 128 else 108
-	var count = 0
-	for pitch in range(low,high+1):
+	var leading = .32 if pitches.x%12 in DARK else 0.0
+	var span = leading+(.32 if pitches.y%12 in DARK else 0.0)
+	for pitch in range(pitches.x,pitches.y+1):
 		if pitch%12 not in DARK:
-			count += 1
-	key_width = (size.x-margin*2)/count
+			span += 1.0
+	key_width = maxf(1.0,size.x-margin*2)/span
 	keyboard.clear()
 	whites.clear()
 	blacks.clear()
 	var next = 0
-	for pitch in range(low,high+1):
+	for pitch in range(pitches.x,pitches.y+1):
 		var dark = pitch%12 in DARK
 		var width = key_width*(.64 if dark else 1)
-		var center = margin+(next+(0.0 if dark else .5))*key_width
+		var center = margin+(leading+next+(0.0 if dark else .5))*key_width
 		var left = center-width/2 + (0 if dark else .52)
 		var height = (size.y-impact-2)*(.61 if dark else 1.0)
 		var key_rect = Rect2(left,impact+1,maxf(1.0,width-(.38 if dark else 1.04)),maxf(height,1.0))
@@ -123,24 +123,24 @@ func build_keys() -> void:
 func stage_scale() -> float:
 	return maxf(.1,impact/EFFECT_REFERENCE_HEIGHT)
 
-func cover(texture: Texture2D, height: float) -> void:
+func paint_fitted_image(texture: Texture2D, height: float) -> void:
 	var target = Vector2(size.x,height)
 	var origin = texture.get_size()
-	var scale = maxf(target.x/origin.x,target.y/origin.y)
-	var crop = target/scale
-	draw_texture_rect_region(texture,Rect2(Vector2.ZERO,target),Rect2((origin-crop)*.5,crop))
+	var extent = origin*minf(target.x/origin.x,target.y/origin.y)
+	draw_texture_rect(texture,Rect2((target-extent)*.5,extent),false)
 
 func paint_background() -> void:
 	var name = settings.background
 	if name == "theme":
 		name = "soviet" if settings.theme == "soviet" else "aurora"
 	var glass = settings.keyStyle == "glass"
+	var image_height = size.y if glass else impact
 	draw_rect(Rect2(Vector2.ZERO,size),Color.BLACK)
 	if name == "custom" and custom_image:
-		cover(custom_image,size.y)
+		paint_fitted_image(custom_image,image_height)
 		draw_rect(Rect2(Vector2.ZERO,size),Color(0,0,0,settings.backgroundShade/100.0))
 	elif name == "soviet":
-		cover(PANORAMA,size.y if glass else impact)
+		paint_fitted_image(PANORAMA,image_height)
 		draw_rect(Rect2(0,0,size.x,impact),Color(0.08,0.02,0.05,.22))
 	elif BACKDROPS.has(name):
 		var colors = BACKDROPS[name]

@@ -180,6 +180,7 @@ kbd{font:11px var(--mono);background:#171221;border:1px solid #352744;border-rad
 .recording-result{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 13px;border-top:1px solid var(--edge-soft);font-size:13px;color:#d2c4e0}
 .recording-result .button{min-height:31px;text-decoration:none;color:#e7cff8;font-size:13px}
 .appearance-dialog .effect-row select{max-width:60%}
+#visibleKeys{width:5em;padding:3px 7px;border:1px solid var(--edge);border-radius:5px;color:inherit;background:transparent;font:inherit}
 @media(max-width:600px){.stage-tools .legend{max-width:120px}.stage-tools .zoom{display:none}}
 @media(max-width:470px){.record-button{padding:0 3px}.record-button span{display:none}.stage-tools .legend{max-width:90px}}
 
