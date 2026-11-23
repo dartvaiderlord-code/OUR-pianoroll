@@ -151,11 +151,11 @@ function buildGeometry() {
   return geometry;
 }
 
-function fitBackground(image,w,h) {
-  const scale = Math.min(w/image.naturalWidth,h/image.naturalHeight);
-  const width = image.naturalWidth*scale;
-  const height = image.naturalHeight*scale;
-  bgCtx.drawImage(image,(w-width)/2,(h-height)/2,width,height);
+function drawBackgroundImage(image,w,h) {
+  const scale = Math.max(w/image.naturalWidth,h/image.naturalHeight);
+  const width = w/scale;
+  const height = h/scale;
+  bgCtx.drawImage(image,(image.naturalWidth-width)/2,(image.naturalHeight-height)/2,width,height,0,0,w,h);
 }
 
 function paintBackground() {
@@ -174,11 +174,11 @@ function paintBackground() {
   bgCtx.fillStyle = '#000000';
   bgCtx.fillRect(0,0,w,h);
   if (custom) {
-    fitBackground(custom.image,w,imageHeight);
+    drawBackgroundImage(custom.image,w,imageHeight);
     bgCtx.fillStyle = rgba('#000000',backgroundShade/100);
     bgCtx.fillRect(0,0,w,h);
   } else if (name === 'soviet' && sovietArtwork.complete && sovietArtwork.naturalWidth) {
-    fitBackground(sovietArtwork,w,imageHeight);
+    drawBackgroundImage(sovietArtwork,w,imageHeight);
     bgCtx.fillStyle = '#14080f38';
     bgCtx.fillRect(0,0,w,imageHeight);
   } else if (theme) {

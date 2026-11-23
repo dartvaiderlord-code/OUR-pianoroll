@@ -123,11 +123,12 @@ func build_keys() -> void:
 func stage_scale() -> float:
 	return maxf(.1,impact/EFFECT_REFERENCE_HEIGHT)
 
-func paint_fitted_image(texture: Texture2D, height: float) -> void:
+func paint_background_image(texture: Texture2D, height: float) -> void:
 	var target = Vector2(size.x,height)
 	var origin = texture.get_size()
-	var extent = origin*minf(target.x/origin.x,target.y/origin.y)
-	draw_texture_rect(texture,Rect2((target-extent)*.5,extent),false)
+	var scale = maxf(target.x/origin.x,target.y/origin.y)
+	var crop = target/scale
+	draw_texture_rect_region(texture,Rect2(Vector2.ZERO,target),Rect2((origin-crop)*.5,crop))
 
 func paint_background() -> void:
 	var name = settings.background
@@ -137,10 +138,10 @@ func paint_background() -> void:
 	var image_height = size.y if glass else impact
 	draw_rect(Rect2(Vector2.ZERO,size),Color.BLACK)
 	if name == "custom" and custom_image:
-		paint_fitted_image(custom_image,image_height)
+		paint_background_image(custom_image,image_height)
 		draw_rect(Rect2(Vector2.ZERO,size),Color(0,0,0,settings.backgroundShade/100.0))
 	elif name == "soviet":
-		paint_fitted_image(PANORAMA,image_height)
+		paint_background_image(PANORAMA,image_height)
 		draw_rect(Rect2(0,0,size.x,impact),Color(0.08,0.02,0.05,.22))
 	elif BACKDROPS.has(name):
 		var colors = BACKDROPS[name]

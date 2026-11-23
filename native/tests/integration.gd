@@ -159,7 +159,7 @@ func check_key_range(app: Control) -> bool:
 	app.apply_keyboard_range()
 	return true
 
-func check_uncropped_background() -> bool:
+func check_background_cover() -> bool:
 	var viewport = SubViewport.new()
 	viewport.size = Vector2i(320,240)
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -169,8 +169,7 @@ func check_uncropped_background() -> bool:
 	viewport.add_child(canvas)
 	var photo = Image.create(40,80,false,Image.FORMAT_RGB8)
 	photo.fill(Color.GREEN)
-	photo.fill_rect(Rect2i(0,0,40,8),Color.RED)
-	photo.fill_rect(Rect2i(0,72,40,8),Color.BLUE)
+	photo.fill_rect(Rect2i(15,35,10,10),Color.RED)
 	var texture = ImageTexture.create_from_image(photo)
 	var appearance = Design.defaults()
 	appearance.background = "custom"
@@ -191,9 +190,11 @@ func check_uncropped_background() -> bool:
 	var narrowed = viewport.get_texture().get_image()
 	var photo_area = Rect2i(0,0,320,int(canvas.impact))
 	viewport.queue_free()
-	return expect(initial.get_pixel(160,5).r>.9 and initial.get_pixel(160,photo_area.size.y-5).b>.9 and
+	return expect(initial.get_pixel(1,1).g>.9 and initial.get_pixel(318,photo_area.size.y-2).g>.9 and
+			initial.get_pixel(124,96).r>.9 and initial.get_pixel(160,60).r>.9 and
+			initial.get_pixel(114,96).g>.9 and initial.get_pixel(160,50).g>.9 and
 			initial.get_region(photo_area).get_data()==narrowed.get_region(photo_area).get_data(),
-			"The whole photo remains visible and is positioned identically across keyboard ranges")
+			"The centered photo covers the roll with a square marker and is independent of the key range")
 
 func check_scroll(app: Control) -> bool:
 	root.content_scale_size = Vector2i(440,760)
@@ -283,7 +284,7 @@ func run() -> void:
 		return
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("user://native-interface.png")
-	if not await check_uncropped_background():
+	if not await check_background_cover():
 		return
 	if not await check_scroll(app):
 		return
