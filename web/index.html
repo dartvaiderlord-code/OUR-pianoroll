@@ -1546,10 +1546,6 @@ function drawNote(slot, top, bottom, color, velocity) {
   noteCtx.strokeStyle = noteFill === 'outline' ? color : rgba(color,glow ? .98 : .76);
   noteCtx.stroke();
   noteCtx.shadowBlur = 0;
-  if (noteFill !== 'outline' && glow && height >= 3 && width > 3) {
-    noteCtx.fillStyle = '#fff9ffae';
-    noteCtx.fillRect(x+1.5,end-2.3,width-3,1.2);
-  }
 }
 
 function drawMidiLayers(visible,time,scale) {

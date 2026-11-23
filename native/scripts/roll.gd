@@ -222,8 +222,6 @@ func paint_note(note: Dictionary, color: Color, pixels_per_second: float) -> voi
 		paint_gradient(rect,color,radius)
 	var edge = maxi(1,roundi(stage_scale()))
 	visual_box(rect,body,color,edge,radius,settings.glow)
-	if settings.glow and settings.noteFill not in ["outline","gradient"] and height > 4*edge and rect.size.x > 3*edge:
-		draw_rect(Rect2(rect.position.x+edge,bottom-2.1*edge,rect.size.x-2*edge,edge),Color(1,.95,.88,.58))
 
 func paint_key(pitch: int, accent: Color, active: bool, style: String, dark: bool) -> void:
 	var rect: Rect2 = keyboard[pitch]

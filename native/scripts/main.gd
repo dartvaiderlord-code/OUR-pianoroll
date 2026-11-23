@@ -9,6 +9,7 @@ const Transport = preload("res://scripts/transport.gd")
 const Exporter = preload("res://scripts/exporter.gd")
 const LiveCapture = preload("res://scripts/live_capture.gd")
 const TouchScroll = preload("res://scripts/touch_scroll.gd")
+const PitchPicker = preload("res://scripts/pitch_picker.gd")
 const BackgroundImage = preload("res://scripts/background_image.gd")
 const APP_ICON = preload("res://assets/icon.png")
 const BACKGROUND_FILE = "user://background.webp"
@@ -51,9 +52,11 @@ var picker: FileDialog
 var effects_dialog: AcceptDialog
 var appearance_dialog: AcceptDialog
 var key_range_fields: VBoxContainer
-var first_key: OptionButton
-var last_key: OptionButton
+var first_key: Button
+var last_key: Button
 var visible_key_count: SpinBox
+var pitch_picker: AcceptDialog
+var pitch_field: String
 var export_dialog: ConfirmationDialog
 var export_progress: ConfirmationDialog
 var export_bar: ProgressBar
@@ -506,6 +509,7 @@ func build_dialogs() -> void:
 	button(effects,label("resetAppearance"),reset_appearance)
 
 	appearance_dialog = dialog("keysBackground")
+	pitch_picker = null
 	var appearance = spacing(appearance_dialog,false,8)
 	option(labeled(appearance,"keyStyle"),localized_choices(Design.KEY_STYLES),settings.keyStyle,func(value): set_option("keyStyle",value))
 	option(labeled(appearance,"keyRange"),{88:label("standardKeys"),128:label("fullKeys"),0:label("customKeyRange")},settings.range,
@@ -513,23 +517,14 @@ func build_dialogs() -> void:
 			settings.range = value
 			apply_keyboard_range())
 	key_range_fields = spacing(appearance,false,5)
-	var pitches = {}
-	for pitch in range(128):
-		pitches[pitch] = Design.pitch_label(pitch)
-	first_key = option(labeled(key_range_fields,"firstKey"),pitches,settings.keyFrom,func(value):
-		settings.keyFrom = value
-		settings.keyTo = maxi(settings.keyTo,value)
-		apply_keyboard_range())
-	last_key = option(labeled(key_range_fields,"lastKey"),pitches,settings.keyTo,func(value):
-		settings.keyTo = value
-		settings.keyFrom = mini(settings.keyFrom,value)
-		apply_keyboard_range())
+	first_key = button(labeled(key_range_fields,"firstKey"),"",show_pitch_picker.bind("keyFrom","firstKey"))
+	last_key = button(labeled(key_range_fields,"lastKey"),"",show_pitch_picker.bind("keyTo","lastKey"))
 	visible_key_count = number(labeled(key_range_fields,"keyQuantity"),settings.keyTo-settings.keyFrom+1,1,128,1,func(value):
 		var count = int(value)
 		settings.keyFrom = mini(settings.keyFrom,128-count)
 		settings.keyTo = settings.keyFrom+count-1
 		apply_keyboard_range())
-	key_range_fields.visible = settings.range == 0
+	show_keyboard_range_fields()
 	var choices = localized_choices(Design.BACKGROUNDS)
 	if not custom_background:
 		choices.erase("custom")
@@ -592,11 +587,32 @@ func keyboard_count_label() -> String:
 	var pitches = Design.keyboard_range(settings)
 	return label("customKeyCount",{"count":pitches.y-pitches.x+1})
 
-func apply_keyboard_range() -> void:
+func show_pitch_picker(field: String, title_key: String) -> void:
+	if not is_instance_valid(pitch_picker):
+		pitch_picker = PitchPicker.new()
+		pitch_picker.ok_button_text = label("close")
+		pitch_picker.pitch_selected.connect(select_range_pitch)
+		appearance_dialog.add_child(pitch_picker)
+	pitch_field = field
+	pitch_picker.title = label(title_key)
+	pitch_picker.show_pitch(settings[field])
+
+func select_range_pitch(pitch: int) -> void:
+	settings[pitch_field] = pitch
+	if pitch_field == "keyFrom":
+		settings.keyTo = maxi(settings.keyTo,pitch)
+	else:
+		settings.keyFrom = mini(settings.keyFrom,pitch)
+	apply_keyboard_range()
+
+func show_keyboard_range_fields() -> void:
 	key_range_fields.visible = settings.range == 0
-	first_key.select(settings.keyFrom)
-	last_key.select(settings.keyTo)
+	first_key.text = Design.pitch_label(settings.keyFrom)+"  ▾"
+	last_key.text = Design.pitch_label(settings.keyTo)+"  ▾"
 	visible_key_count.set_value_no_signal(settings.keyTo-settings.keyFrom+1)
+
+func apply_keyboard_range() -> void:
+	show_keyboard_range_fields()
 	roll.release_touches()
 	save_settings()
 	apply_roll()

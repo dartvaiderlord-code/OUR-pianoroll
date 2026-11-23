@@ -138,17 +138,19 @@ func check_key_range(app: Control) -> bool:
 	app.roll.build_keys()
 	var width: float = app.roll.keyboard[60].size.x
 	app.settings.range = 0
-	app.first_key.item_selected.emit(60)
+	app.pitch_field = "keyFrom"
+	app.select_range_pitch(60)
 	app.visible_key_count.value = 8
 	app.roll.build_keys()
 	var config = ConfigFile.new()
 	if not expect(app.roll.keyboard.size()==8 and app.roll.keyboard.has(67) and not app.roll.keyboard.has(68) and
-			app.roll.keyboard[60].size.x>width and app.last_key.selected==67 and config.load(app.SETTINGS_FILE)==OK and
+			app.roll.keyboard[60].size.x>width and app.last_key.text.begins_with("G4") and config.load(app.SETTINGS_FILE)==OK and
 			config.get_value("style","keyFrom")==60 and config.get_value("style","keyTo")==67,
 			"Eight keys from C4 to G4 widen the lanes and persist both endpoints"):
 		return false
-	app.first_key.item_selected.emit(61)
-	app.last_key.item_selected.emit(61)
+	app.select_range_pitch(61)
+	app.pitch_field = "keyTo"
+	app.select_range_pitch(61)
 	app.roll.build_keys()
 	var sharp: Rect2 = app.roll.keyboard[61]
 	if not expect(app.roll.keyboard.size()==1 and sharp.size.x>0 and sharp.position.x>=0 and
@@ -195,6 +197,85 @@ func check_background_cover() -> bool:
 			initial.get_pixel(114,96).g>.9 and initial.get_pixel(160,50).g>.9 and
 			initial.get_region(photo_area).get_data()==narrowed.get_region(photo_area).get_data(),
 			"The centered photo covers the roll with a square marker and is independent of the key range")
+
+func check_note_bottom() -> bool:
+	var viewport = SubViewport.new()
+	viewport.size = Vector2i(320,240)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(viewport)
+	var canvas = Roll.new()
+	canvas.size = Vector2(320,240)
+	viewport.add_child(canvas)
+	var appearance = Design.defaults()
+	appearance.background = "black"
+	appearance.noteFill = "solid"
+	appearance.noteRoundness = 100.0
+	appearance.range = 0
+	appearance.keyFrom = 60
+	appearance.keyTo = 60
+	var notes = [{"pitch":60,"start":1.0,"end":2.0,"velocity":1.0,"channel":0,"program":0}]
+	canvas.configure(appearance,[MIDI.layer("Note",notes,2.0,"#ff0000")],null)
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var snapshot = viewport.get_texture().get_image()
+	var bottom = int(canvas.impact*(1.0-1.0/appearance.horizon))
+	var color = snapshot.get_pixel(160,bottom-2)
+	viewport.queue_free()
+	return expect(color.r>.9 and color.g<.1,"A glowing rounded note has no highlight stripe across its bottom")
+
+func touch_pitch_list(dialog: Window, point: Vector2, pressed: bool) -> void:
+	var mouse = InputEventMouseButton.new()
+	mouse.device = InputEvent.DEVICE_ID_EMULATION
+	mouse.button_index = MOUSE_BUTTON_LEFT
+	mouse.position = point
+	mouse.pressed = pressed
+	dialog.push_input(mouse,true)
+	var touch = InputEventScreenTouch.new()
+	touch.index = 0
+	touch.position = point
+	touch.pressed = pressed
+	dialog.push_input(touch,true)
+
+func check_pitch_swipe(app: Control) -> bool:
+	app.settings.range = 0
+	app.apply_keyboard_range()
+	app.appearance_dialog.popup_centered()
+	app.first_key.pressed.emit()
+	await process_frame
+	await RenderingServer.frame_post_draw
+	var picker = app.pitch_picker
+	var rect: Rect2 = picker.list.get_global_rect()
+	var initial_pitch: int = app.settings.keyFrom
+	if not expect(rect.has_point(picker.rows[initial_pitch].get_global_rect().get_center()),
+			"The pitch picker opens at the current endpoint"):
+		return false
+	var initial_scroll: int = picker.list.scroll_vertical
+	var origin = rect.position+Vector2(rect.size.x*.5,rect.size.y*.80)
+	touch_pitch_list(picker,origin,true)
+	var drag = InputEventScreenDrag.new()
+	drag.position = origin-Vector2(0,110)
+	drag.relative = Vector2(0,-110)
+	picker.push_input(drag,true)
+	touch_pitch_list(picker,drag.position,false)
+	if not expect(picker.list.scroll_vertical>=initial_scroll+100 and picker.visible and app.settings.keyFrom==initial_pitch,
+			"Swiping the note rows scrolls the picker without choosing a note"):
+		return false
+	await process_frame
+	for pitch in range(picker.rows.size()):
+		var point: Vector2 = picker.rows[pitch].get_global_rect().get_center()
+		if pitch != initial_pitch and rect.has_point(point):
+			touch_pitch_list(picker,point,true)
+			touch_pitch_list(picker,point,false)
+			var selected: bool = app.settings.keyFrom==pitch and not picker.visible
+			app.last_key.pressed.emit()
+			await process_frame
+			selected = selected and picker.visible and picker.title==app.label("lastKey") and picker.list.finger==-1
+			picker.hide()
+			app.appearance_dialog.hide()
+			app.settings.range = 88
+			app.apply_keyboard_range()
+			return expect(selected,"Tapping a note after a swipe applies the range endpoint")
+	return expect(false,"The pitch picker has visible rows after a swipe")
 
 func check_scroll(app: Control) -> bool:
 	root.content_scale_size = Vector2i(440,760)
@@ -286,7 +367,11 @@ func run() -> void:
 	root.get_texture().get_image().save_png("user://native-interface.png")
 	if not await check_background_cover():
 		return
+	if not await check_note_bottom():
+		return
 	if not await check_scroll(app):
+		return
+	if not await check_pitch_swipe(app):
 		return
 	print("Custom photo loading and touch scrolling checks passed.")
 	app.music.play()
